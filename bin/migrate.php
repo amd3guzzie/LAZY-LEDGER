@@ -14,6 +14,9 @@ function out(string $msg): void
 }
 
 // Wait for MySQL (it may still be starting when the app container boots).
+$c = config()['db'];
+out("Connecting to {$c['user']}@{$c['host']}:{$c['port']}/{$c['name']}"
+    . (env('MYSQLHOST') === null ? ' (MYSQLHOST is not set — using the default)' : ''));
 $pdo = null;
 for ($attempt = 1; $attempt <= 30; $attempt++) {
     try {
