@@ -50,16 +50,111 @@ docs/API.md          REST API reference
 Dockerfile, docker/  Production image used by Railway
 ```
 
-## Database (ERD summary)
+## Database (ERD)
 
-```
-users 1─N accounts 1─N transactions N─1 categories
-users 1─N budgets N─1 categories
-users 1─N categories (custom; user_id NULL = global)
-users 1─N category_requests (requester)   users 1─N category_requests (handled_by)
-users 1─N support_tickets   (requester)   users 1─N support_tickets   (handled_by)
-users 1─N notifications
-users 1─N audit_log (actor)
+```mermaid
+erDiagram
+    users ||--o{ accounts : "owns"
+    accounts ||--o{ transactions : "records"
+    categories |o--o{ transactions : "classifies"
+    users |o--o{ categories : "custom (NULL = global)"
+    users ||--o{ budgets : "sets"
+    categories ||--o{ budgets : "limited by"
+    users ||--o{ category_requests : "submits"
+    users |o--o{ category_requests : "handles"
+    users ||--o{ support_tickets : "opens"
+    users |o--o{ support_tickets : "handles"
+    users ||--o{ notifications : "receives"
+    users |o--o{ audit_log : "performs"
+
+    users {
+        int id PK
+        varchar first_name
+        varchar last_name
+        varchar email UK
+        varchar password_hash
+        enum role "customer | staff | admin"
+        enum status "active | suspended"
+        decimal monthly_budget "nullable"
+        boolean budget_alerts
+        boolean bill_reminders
+        datetime last_login_at
+        datetime created_at
+    }
+    accounts {
+        int id PK
+        int user_id FK
+        varchar name
+        enum type "cash | bank | e_wallet | savings | credit_card"
+        decimal opening_balance "negative for credit cards"
+        date due_date "credit cards only"
+        datetime created_at
+    }
+    categories {
+        int id PK
+        int user_id FK "NULL for global"
+        varchar name
+        enum type "income | expense"
+        boolean is_global
+        datetime created_at
+    }
+    transactions {
+        int id PK
+        int account_id FK
+        int category_id FK "nullable"
+        enum type "income | expense"
+        decimal amount "CHECK > 0"
+        varchar description
+        date transaction_date
+        datetime created_at
+    }
+    budgets {
+        int id PK
+        int user_id FK
+        int category_id FK
+        decimal amount_limit "CHECK > 0"
+        date start_date
+        date end_date
+        datetime created_at
+    }
+    category_requests {
+        int id PK
+        int user_id FK "requester"
+        int handled_by FK "staff, nullable"
+        varchar requested_name
+        enum requested_type "income | expense"
+        varchar reason
+        enum status "pending | approved | rejected"
+        datetime created_at
+        datetime resolved_at
+    }
+    support_tickets {
+        int id PK
+        int user_id FK "requester"
+        int handled_by FK "staff, nullable"
+        varchar subject
+        text message
+        text staff_reply
+        enum status "pending | in_progress | resolved"
+        datetime created_at
+        datetime resolved_at
+    }
+    notifications {
+        int id PK
+        int user_id FK
+        varchar message
+        boolean is_read
+        datetime created_at
+    }
+    audit_log {
+        int id PK
+        int actor_id FK "nullable"
+        varchar action
+        varchar target_type
+        int target_id
+        varchar details
+        datetime created_at
+    }
 ```
 
 Account balances are **computed** (`opening_balance + Σincome − Σexpense`), never stored, so they can't drift. Credit cards are liabilities: the amount owed is stored as a negative opening balance and card purchases make it more negative. Net worth = sum of all balances.
