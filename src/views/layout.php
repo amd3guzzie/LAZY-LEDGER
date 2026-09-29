@@ -11,7 +11,8 @@ function render_head(string $title): void
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
-  <title><?= e($title) ?> · LazyLedger</title>
+  <title><?= e($title) ?></title>
+  <link rel="icon" type="image/png" href="/assets/img/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=League+Spartan:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -35,7 +36,8 @@ function render_shell_start(array $user, array $nav, string $roleLabel): void
 <div class="app-shell">
   <main class="app-main" id="main">
     <header class="app-header">
-      <a class="brand" href="#<?= e($nav[0][0]) ?>"><span class="brand-dot" aria-hidden="true"></span>LAZY LEDGER</a>
+      <a class="brand d-flex align-items-center gap-2 text-decoration-none" href="#top">
+      <img src="/assets/img/logo.png" style="height: 36px; width: auto;">LAZY LEDGER</a>
       <div class="d-flex align-items-center gap-2">
         <div id="headerActions" class="d-flex gap-2"></div>
         <button class="hamburger d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Open menu">

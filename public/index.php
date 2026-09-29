@@ -13,17 +13,18 @@ $team = [
     ['Magdaluyo, Sydney Allison', 'Backend Developer'],
     ['Robles, Nicole Joy', 'QA / UI / Documentation'],
 ];
-render_head('Manage your finances, effortlessly');
+render_head('Lazy Ledger');
 ?>
 <body class="landing">
 <a class="visually-hidden-focusable" href="#home">Skip to content</a>
 <div class="container-xl py-3 py-md-4" id="top">
 
   <nav class="panel landing-nav d-flex flex-wrap align-items-center justify-content-between gap-2 px-3 px-md-4 py-3 mb-3" aria-label="Main">
-    <a class="brand" href="#top"><span class="brand-dot" aria-hidden="true"></span>LAZY LEDGER</a>
+    <a class="brand d-flex align-items-center gap-2 text-decoration-none" href="#top">
+      <img src="/assets/img/logo.png" style="height: 36px; width: auto;">LAZY LEDGER</a>
     <div class="d-flex align-items-center gap-3 gap-md-4">
-      <a class="nav-item-link" href="#about">About Us</a>
       <a class="nav-item-link" href="#features">Features</a>
+      <a class="nav-item-link" href="#about">About Us</a>
       <span class="divider" aria-hidden="true"></span>
       <?php if ($user): ?>
         <a class="nav-item-link" href="<?= e(home_for_role($user['role'])) ?>">Dashboard</a>
@@ -54,10 +55,10 @@ render_head('Manage your finances, effortlessly');
     </div>
   </section>
 
-  <section class="panel p-4 p-md-5 mb-3 text-center" id="features">
+  <section class="panel p-4 p-md-4 mb-3 text-center" id="features" style="padding-bottom: 3rem;">
     <h2 class="section-title mb-2">WHY CHOOSE LAZYLEDGER?</h2>
     <p class="hero-copy">Take control of your daily budget with a streamlined tracker designed for clarity, security, and ease of use.</p>
-    <div class="row g-4 mt-2">
+    <div class="row g-4 mt-2 mb-4">
       <div class="col-md-4">
         <div class="feature-card">
           <img src="/assets/img/feature-section-1.png" alt="">
