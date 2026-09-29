@@ -1,0 +1,21 @@
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block dotfiles (e.g. .env, .git) except .well-known
+    RewriteRule (^|/)\.(?!well-known) - [F,L]
+
+    # All REST API calls go through the front controller
+    RewriteRule ^api(/.*)?$ api/index.php [QSA,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    # PHP pages set these themselves (send_security_headers); this covers static files.
+    Header setifempty X-Content-Type-Options "nosniff"
+    Header setifempty Referrer-Policy "strict-origin-when-cross-origin"
+    <FilesMatch "\.(css|js|png|jpg|svg|woff2?)$">
+        Header set Cache-Control "public, max-age=86400"
+    </FilesMatch>
+</IfModule>
