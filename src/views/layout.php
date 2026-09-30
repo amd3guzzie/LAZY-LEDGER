@@ -20,7 +20,7 @@ function render_head(string $title): void
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   
   <!-- Google reCAPTCHA API -->
-  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+  <script src="[https://www.google.com/recaptcha/api.js](https://www.google.com/recaptcha/api.js)" async defer></script>
   
   <link href="/assets/css/styles.css" rel="stylesheet">
 </head>
