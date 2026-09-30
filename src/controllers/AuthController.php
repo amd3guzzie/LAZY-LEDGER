@@ -1,5 +1,4 @@
-<?php
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 final class AuthController
 {
@@ -10,8 +9,11 @@ final class AuthController
     {
         $body = read_json();
         $v = new Validator($body);
-        $first = $v->str('first_name', 'First name', 60);
-        $last = $v->str('last_name', 'Last name', 60, required: false);
+        
+        // Enforce a minimum of 2 characters for names to prevent single-letter inputs
+        $first = $v->str('first_name', 'First name', 60, true, 2);
+        $last = $v->str('last_name', 'Last name', 60, false, 2);
+        
         $email = $v->email('email');
         $password = (string) ($body['password'] ?? '');
         $confirm = (string) ($body['confirm_password'] ?? '');
@@ -42,7 +44,7 @@ final class AuthController
         start_session();
         $lockedUntil = $_SESSION['login_locked_until'] ?? 0;
         if ($lockedUntil > time()) {
-            fail(429, 'Too many failed attempts. Please wait a minute and try again.');
+            fail(429, 'Too many failed attempts. Please contact the admin of the page.');
         }
 
         $body = read_json();
@@ -57,17 +59,22 @@ final class AuthController
         $user = q_one('SELECT * FROM users WHERE email = ?', [$email]);
         // Verify against a dummy hash when the user doesn't exist, so timing doesn't reveal valid emails.
         $hash = $user['password_hash'] ?? '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG';
+        
         if (!password_verify($password, $hash) || !$user) {
             $_SESSION['login_failures'] = ($_SESSION['login_failures'] ?? 0) + 1;
+            
             if ($_SESSION['login_failures'] >= self::MAX_ATTEMPTS) {
                 $_SESSION['login_failures'] = 0;
                 $_SESSION['login_locked_until'] = time() + self::LOCK_SECONDS;
+                fail(429, 'Too many failed attempts. Please contact the admin of the page.');
             }
             fail(401, 'Invalid email or password.');
         }
+        
         if ($user['status'] !== 'active') {
             fail(403, 'This account has been suspended. Please contact support.');
         }
+        
         if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
             q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $user['id']]);
         }
