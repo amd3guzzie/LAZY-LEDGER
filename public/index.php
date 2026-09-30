@@ -122,9 +122,6 @@ render_head('Lazy Ledger');
   </footer>
 </div>
 
-<!-- Add this script tag anywhere in your <head> or before the closing </body> tag -->
-<script src="https://www.google.com/recaptcha/api.js" async defer></script>
-
 <!-- Login Modal -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -161,6 +158,34 @@ render_head('Lazy Ledger');
     </div>
   </div>
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const loginForm = document.getElementById('loginForm');
+    
+    if (loginForm) {
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const d = LL.formData(loginForm);
+        
+        LL.submitting(loginForm, async () => {
+          try {
+            // Send credentials and CAPTCHA token to the backend
+            const res = await LL.api('/auth/login', { method: 'POST', body: d });
+            window.location.href = res.redirect;
+          } catch (err) {
+            LL.showErrors(loginForm, err);
+            
+            // Reset the Google CAPTCHA widget so they can try again if the password was wrong
+            if (typeof grecaptcha !== 'undefined') {
+              grecaptcha.reset();
+            }
+          }
+        });
+      });
+    }
+  });
+</script>
 
 <!-- Sign up -->
 <div class="modal fade" id="signupModal" tabindex="-1" aria-labelledby="signupTitle" aria-hidden="true">
