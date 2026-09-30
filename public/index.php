@@ -210,4 +210,4 @@ render_head('Lazy Ledger');
 <script src="/assets/js/api.js"></script>
 <script src="/assets/js/landing.js?v=nopaste"></script>
 </body>
-</html>
+</html> 

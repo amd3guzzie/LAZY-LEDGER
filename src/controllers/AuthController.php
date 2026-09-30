@@ -74,7 +74,6 @@ final class AuthController
         }
         $v->done();
 
-        // Hardcoding the secret string directly since env() expects a variable name
         $recaptchaSecret = '6LeC6dYtAAAAAB99au6I0sF7Da6Wz6efdgL1RPb9';
         $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
         
@@ -92,6 +91,8 @@ final class AuthController
         $verifyResult = file_get_contents($verifyUrl, false, $context);
         $captchaData = json_decode($verifyResult);
         
+        error_log("Captcha Score: " . $captchaData->score);
+
         // v3 requires checking both success and the bot probability score (>= 0.5 is standard)
         if (!$captchaData || !$captchaData->success || !isset($captchaData->score) || $captchaData->score < 0.5) {
             fail(401, 'Suspicious bot activity detected. Please try again later.');
