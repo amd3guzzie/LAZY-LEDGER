@@ -123,6 +123,7 @@ render_head('Lazy Ledger');
 </div>
 
 <!-- Login Modal -->
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content p-3 p-md-4">
