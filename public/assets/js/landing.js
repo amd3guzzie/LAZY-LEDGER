@@ -44,7 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
   // --- LOGIN FORM ---
- loginForm.addEventListener('submit', async (e) => {
+ // --- LOGIN FORM ---
+  loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (localStorage.getItem('ll_login_locked') === 'true') return;
 
@@ -65,41 +66,34 @@ document.addEventListener('DOMContentLoaded', () => {
       return LL.showErrors(loginForm, { fields });
     }
     
-    // Safely grab the Google reCAPTCHA token directly from the API
-    const captchaValue = typeof grecaptcha !== 'undefined' ? grecaptcha.getResponse() : '';
-    if (!captchaValue) {
-      // Pass a standard Error object so the UI displays this exact text
-      return LL.showErrors(loginForm, new Error('Please check the "I am not a robot" box to continue.'));
-    }
-    
-    data['g-recaptcha-response'] = captchaValue;
-    data.password = loginForm.elements.password.value; // never trim passwords
-    
     const btn = loginForm.querySelector('[type="submit"]');
     LL.clearErrors(loginForm);
     if (btn) btn.disabled = true;
 
-    try {
-      const res = await LL.api('/auth/login', { method: 'POST', body: data });
-      if (res && res.redirect) {
-        window.location.href = res.redirect;
-      } else {
-        throw new Error('Invalid server response format. Please check the backend.');
-      }
-    } catch (err) {
-      // Reset the CAPTCHA widget on any login failure
-      if (typeof grecaptcha !== 'undefined') {
-        grecaptcha.reset();
-      }
+    // Execute reCAPTCHA v3 silently
+    grecaptcha.ready(function() {
+      grecaptcha.execute('6LeC6dYtAAAAAECIlAtZGIffeHlx8gDNwLwYMlO_', {action: 'login'}).then(async function(token) {
+        data['g-recaptcha-response'] = token;
+        data.password = loginForm.elements.password.value; // never trim passwords
 
-      if (err.status === 429) {
-        localStorage.setItem('ll_login_locked', 'true');
-        if (typeof lockLoginUI === 'function') lockLoginUI();
-      } else {
-        LL.showErrors(loginForm, err);
-        if (btn) btn.disabled = false;
-      }
-    }
+        try {
+          const res = await LL.api('/auth/login', { method: 'POST', body: data });
+          if (res && res.redirect) {
+            window.location.href = res.redirect;
+          } else {
+            throw new Error('Invalid server response format. Please check the backend.');
+          }
+        } catch (err) {
+          if (err.status === 429) {
+            localStorage.setItem('ll_login_locked', 'true');
+            if (typeof lockLoginUI === 'function') lockLoginUI();
+          } else {
+            LL.showErrors(loginForm, err);
+            if (btn) btn.disabled = false;
+          }
+        }
+      });
+    });
   });
 
   // --- SIGNUP FORM (Inline Validation & Password Strength) ---

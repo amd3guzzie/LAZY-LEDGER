@@ -123,7 +123,6 @@ render_head('Lazy Ledger');
 </div>
 
 <!-- Login Modal -->
-<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content p-3 p-md-4">
@@ -146,12 +145,10 @@ render_head('Lazy Ledger');
         <div class="text-end mb-3">
           <button type="button" class="btn-link-ll small" style="color:#f59366" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-content="Please email support@lazyledger.app from your registered address and our staff will reset your password.">Forgot Password?</button>
         </div>
-        <div class="mb-3 d-flex justify-content-center">
-          <div class="g-recaptcha" data-sitekey="6LeC6dYtAAAAAECIlAtZGIffeHlx8gDNwLwYMlO_"></div>
-        </div>
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
           <span class="fw-bold text-terracotta small">New here? <button type="button" class="btn-link-ll" data-switch="#signupModal">Create Account</button></span>
-          <button class="btn btn-ll btn-lg" type="submit">Login</button>
+          <button class="btn btn-ll btn-lg" type="submit" id="loginSubmitBtn">Login</button>
         </div>
       </form>
     </div>
@@ -206,6 +203,10 @@ render_head('Lazy Ledger');
 
 <?php render_common_ui(); ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+<!-- Google reCAPTCHA v3 Script -->
+<script src="https://www.google.com/recaptcha/api.js?render=6LeC6dYtAAAAAECIlAtZGIffeHlx8gDNwLwYMlO_"></script>
+
 <script src="/assets/js/api.js"></script>
 <script src="/assets/js/landing.js?v=nopaste"></script>
 </body>
