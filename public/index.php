@@ -150,7 +150,7 @@ render_head('Lazy Ledger');
 
         <!-- Google reCAPTCHA Widget -->
         <div class="mb-3 d-flex justify-content-center">
-          <div class="g-recaptcha" data-sitekey="YOUR_RECAPTCHA_SITE_KEY_HERE"></div>
+          <div class="g-recaptcha" data-sitekey="6LeC6dYtAAAAAB99au6I0sF7Da6Wz6efdgL1RPb9"></div>
         </div>
 
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
