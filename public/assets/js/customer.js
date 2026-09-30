@@ -72,7 +72,7 @@
     setChange($('#expenseChange'), s.expense_change, false);
 
     $('#alertBox').innerHTML = s.alerts.length
-      ? html`<div class="alert alert-ll d-flex gap-2 align-items-start" role="alert"><i class="bi bi-exclamation-triangle-fill"></i><div>${s.alerts.map((a) => raw(html`<div>${a.category_name}: ${a.pct > 100 ? 'over budget' : 'almost at its limit'} (${money(a.spent)} of ${money(a.amount_limit)})</div>`))}</div></div>`
+      ? html`<div class="alert alert-ll d-flex gap-2 align-items-start" role="alert"><i class="bi bi-exclamation-triangle-fill"></i><div>${s.alerts.map((a) => raw(html`<div>${a.category_name}:${a.pct > 100 ? 'over budget' : 'almost at its limit'} (${money(a.spent)} of${money(a.amount_limit)})</div>`))}</div></div>`
       : '';
 
     $('#homeBudgets').innerHTML = s.budgets.length
@@ -571,19 +571,43 @@
     });
 
     // Profile
+    const profileEmail = $('#profileForm').elements.email;
+    profileEmail.addEventListener('input', () => {
+      const group = $('#passwordConfirmGroup');
+      if (!group) return;
+      if (profileEmail.value.trim() !== state.me.email) {
+        group.style.display = 'block';
+      } else {
+        group.style.display = 'none';
+        $('#profileForm').elements.current_password.value = '';
+      }
+    });
+
     $('#profileForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const form = e.target;
       const d = formData(form);
       if (!d.first_name) return showErrors(form, { fields: { first_name: 'First name is required.' } });
+      
+      // Ignore password if the email hasn't actually changed
+      if (d.email === state.me.email) {
+        delete d.current_password;
+      }
+
       submitting(form, async () => {
         const res = await api('/profile', { method: 'PUT', body: d });
-        state.me = res.data;
+        state.me = res.data; // Updates the saved state to the new email
         $('#sidebarName').textContent = `${res.data.first_name} ${res.data.last_name}`.trim();
         $('#welcomeName').textContent = res.data.first_name;
+        
+        const group = $('#passwordConfirmGroup');
+        if (group) group.style.display = 'none';
+        if (form.elements.current_password) form.elements.current_password.value = '';
+        
         toast('Profile saved.');
       });
     });
+
     document.querySelectorAll('[data-pref]').forEach((sw) => sw.addEventListener('change', async () => {
       try {
         const me = state.me;

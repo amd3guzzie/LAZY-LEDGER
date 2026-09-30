@@ -119,4 +119,58 @@ final class AuthController
             $v->error($field, 'Password must contain at least one letter and one number.');
         }
     }
+
+    public static function updateProfile(): array
+    {
+        $user = require_role();
+        $body = read_json();
+        $v = new Validator($body);
+
+        $currentDbUser = q_one('SELECT * FROM users WHERE id = ?', [$user['id']]);
+
+        $first = $v->str('first_name', 'First name', 60, true, 2);
+        $last = $v->str('last_name', 'Last name', 60, false, 2);
+        
+        $newEmail = $v->email('email');
+        $currentPassword = (string) ($body['current_password'] ?? '');
+
+        // Preserve toggle preferences if they are passed, otherwise keep current
+        $budgetAlerts = isset($body['budget_alerts']) ? (int)(bool)$body['budget_alerts'] : $currentDbUser['budget_alerts'];
+        $billReminders = isset($body['bill_reminders']) ? (int)(bool)$body['bill_reminders'] : $currentDbUser['bill_reminders'];
+
+        // Password verification check triggers ONLY if the email is changed
+        if ($newEmail !== $currentDbUser['email']) {
+            if ($currentPassword === '') {
+                $v->error('current_password', 'You must enter your current password to change your email address.');
+            } elseif (!password_verify($currentPassword, $currentDbUser['password_hash'])) {
+                $v->error('current_password', 'Incorrect password. Email update denied.');
+            }
+
+            if (q_val('SELECT 1 FROM users WHERE email = ? AND id != ?', [$newEmail, $user['id']])) {
+                $v->error('email', 'An account with that email already exists.');
+            }
+        }
+
+        $v->done();
+
+        q(
+            'UPDATE users SET first_name = ?, last_name = ?, email = ?, budget_alerts = ?, bill_reminders = ? WHERE id = ?',
+            [$first, $last, $newEmail, $budgetAlerts, $billReminders, $user['id']]
+        );
+
+        // Alert the OLD email about the change
+        if ($newEmail !== $currentDbUser['email']) {
+            send_transactional_email(
+                $currentDbUser['email'], 
+                $currentDbUser['first_name'], 
+                'Security Alert: Email Changed', 
+                '<h1>Security Alert</h1><p>Your LazyLedger account email was just changed to <b>' . e($newEmail) . '</b>. If you did not authorize this, please contact support immediately.</p>'
+            );
+        }
+
+        $updatedUser = q_one('SELECT * FROM users WHERE id = ?', [$user['id']]);
+        
+        // Return 'data' array so your customer.js state.me = res.data updates properly
+        return ['data' => public_user($updatedUser), 'message' => 'Profile updated successfully.'];
+    }
 }

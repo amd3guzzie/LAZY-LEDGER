@@ -263,10 +263,27 @@ render_shell_start($user, [
         <div class="ll-card">
           <h2 class="ll-card-title mb-3">Basic information</h2>
           <form id="profileForm" class="row g-3" novalidate>
-            <div class="col-md-6"><label class="form-label" for="pFirst">First name</label><input class="form-control" id="pFirst" name="first_name" maxlength="60" required></div>
-            <div class="col-md-6"><label class="form-label" for="pLast">Last name</label><input class="form-control" id="pLast" name="last_name" maxlength="60"></div>
-            <div class="col-12"><label class="form-label" for="pEmail">Email address</label><input class="form-control" type="email" id="pEmail" name="email" maxlength="190" required></div>
-            <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="col-md-6">
+              <label class="form-label" for="pFirst">First name</label>
+              <input class="form-control" id="pFirst" name="first_name" maxlength="60" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="pLast">Last name</label>
+              <input class="form-control" id="pLast" name="last_name" maxlength="60">
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="pEmail">Email address</label>
+              <input class="form-control" type="email" id="pEmail" name="email" maxlength="190" required>
+            </div>
+            
+            <!-- Dynamically hidden password confirmation field -->
+            <div class="col-12" id="passwordConfirmGroup" style="display: none;">
+              <label class="form-label" for="pCurrentPassword">Current password</label>
+              <input class="form-control" type="password" id="pCurrentPassword" name="current_password">
+              <div class="form-text text-terracotta fw-bold">Required to authorize your email address change.</div>
+            </div>
+
+            <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
               <button type="button" class="btn-link-ll" data-bs-toggle="modal" data-bs-target="#passwordModal">Change password</button>
               <button class="btn btn-ll" type="submit">Save changes</button>
             </div>
