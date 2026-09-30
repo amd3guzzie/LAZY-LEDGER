@@ -127,7 +127,8 @@ render_head('Lazy Ledger');
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content p-3 p-md-4">
       <div class="modal-header pb-0">
-        <h2 class="brand fs-2 m-0" id="loginTitle"><span class="brand-dot" aria-hidden="true"></span>LAZY LEDGER</h2>
+      <h2 class="brand d-flex align-items-center gap-2 text-decoration-none" href="#top">
+      <img src="/assets/img/logo.png" style="height: 36px; width: auto;">LAZY LEDGER</h2>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form class="modal-body" id="loginForm" novalidate>
@@ -164,7 +165,8 @@ render_head('Lazy Ledger');
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content p-3 p-md-4">
       <div class="modal-header pb-0 justify-content-center position-relative">
-        <h2 class="brand fs-2 m-0" id="signupTitle"><span class="brand-dot" aria-hidden="true"></span>LAZY LEDGER</h2>
+        <h2 class="brand d-flex align-items-center gap-2 text-decoration-none" href="#top">
+      <img src="/assets/img/logo.png" style="height: 36px; width: auto;">LAZY LEDGER</h2>
         <button type="button" class="btn-close position-absolute end-0 me-3" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form class="modal-body" id="signupForm" novalidate>
