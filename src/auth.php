@@ -100,3 +100,24 @@ function page_guard(string $role): array
     send_security_headers();
     return $user;
 }
+
+
+function audit_log(int $userId, string $action, string $details = ''): void
+{
+    // Capture the real IP from the proxy headers (required for Railway)
+    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+    
+    // Grab only the first IP if multiple proxies are chained
+    if (str_contains($ip, ',')) {
+        $ip = explode(',', $ip)[0];
+    }
+    $ip = trim($ip);
+    
+    // Append the IP address to the end of the details string
+    $logDetails = $details === '' ? "IP: $ip" : "$details (IP: $ip)";
+    
+    q(
+        'INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
+        [$userId, substr($action, 0, 100), $logDetails]
+    );
+}
