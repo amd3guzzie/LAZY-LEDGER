@@ -1,5 +1,6 @@
-.git
+vendor/
 .env
+.git/
 docs
 docker-compose.yml
 README.md
