@@ -28,7 +28,7 @@ WORKDIR /var/www/app
 COPY . /var/www/app
 
 # Install the Brevo SDK (this generates the vendor/autoload.php file)
-RUN composer require getbrevo/brevo-php guzzlehttp/guzzle
+RUN composer require brevo/brevo-php guzzlehttp/guzzle
 
 RUN chown -R www-data:www-data /var/www/app
 
