@@ -40,7 +40,7 @@ function send_transactional_email(string $toEmail, string $toName, string $subje
 {
     $apiInstance = new Brevo\Client\Api\TransactionalEmailsApi(new GuzzleHttp\Client(), get_brevo_config());
     $email = new \Brevo\Client\Model\SendSmtpEmail([
-        'sender' => ['name' => 'LazyLedger Support', 'email' => 'support@lazyledger.test'],
+        'sender' => ['name' => 'LazyLedger Support', 'email' => 'deguzzzy0827@gmail.com'],
         'to' => [['email' => $toEmail, 'name' => $toName]],
         'subject' => $subject,
         'htmlContent' => $htmlContent
