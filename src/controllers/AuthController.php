@@ -75,7 +75,7 @@ final class AuthController
         $v->done();
 
         // --- VERIFY CAPTCHA WITH GOOGLE ---
-        $recaptchaSecret = env('6LeC6dYtAAAAAB99au6I0sF7Da6Wz6efdgL1RPb9');
+        $recaptchaSecret = env('RECAPTCHA_SECRET_KEY');
         $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
         
         $context = stream_context_create([

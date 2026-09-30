@@ -147,7 +147,7 @@ render_head('Lazy Ledger');
 
         <!-- Google reCAPTCHA Widget -->
         <div class="mb-3 d-flex justify-content-center">
-          <div class="g-recaptcha" data-sitekey="6LeC6dYtAAAAAECIlAtZGIffeHlx8gDNwLwYMlO_"></div>
+          <div class="g-recaptcha" data-sitekey="6LeC6dYtAAAAAB99au6I0sF7Da6Wz6efdgL1RPb9"></div>
         </div>
 
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -158,34 +158,6 @@ render_head('Lazy Ledger');
     </div>
   </div>
 </div>
-
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const loginForm = document.getElementById('loginForm');
-    
-    if (loginForm) {
-      loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const d = LL.formData(loginForm);
-        
-        LL.submitting(loginForm, async () => {
-          try {
-            // Send credentials and CAPTCHA token to the backend
-            const res = await LL.api('/auth/login', { method: 'POST', body: d });
-            window.location.href = res.redirect;
-          } catch (err) {
-            LL.showErrors(loginForm, err);
-            
-            // Reset the Google CAPTCHA widget so they can try again if the password was wrong
-            if (typeof grecaptcha !== 'undefined') {
-              grecaptcha.reset();
-            }
-          }
-        });
-      });
-    }
-  });
-</script>
 
 <!-- Sign up -->
 <div class="modal fade" id="signupModal" tabindex="-1" aria-labelledby="signupTitle" aria-hidden="true">

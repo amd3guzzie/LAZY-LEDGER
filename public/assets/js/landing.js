@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
   // --- LOGIN FORM ---
-  loginForm.addEventListener('submit', async (e) => {
+ loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (localStorage.getItem('ll_login_locked') === 'true') return;
 
@@ -53,6 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (!emailOk(data.email)) fields.email = 'Please enter a valid email address.';
     if (!loginForm.elements.password.value) fields.password = 'Password is required.';
+    
+    // Ensure the CAPTCHA was checked before hitting the server
+    if (!data['g-recaptcha-response']) {
+        fields['g-recaptcha-response'] = 'Please complete the CAPTCHA.';
+    }
+
     if (Object.keys(fields).length) return LL.showErrors(loginForm, { fields });
     
     data.password = loginForm.elements.password.value; // never trim passwords
@@ -69,6 +75,11 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Invalid server response format. Please check the backend.');
       }
     } catch (err) {
+      // Reset the CAPTCHA widget on any login failure
+      if (typeof grecaptcha !== 'undefined') {
+        grecaptcha.reset();
+      }
+
       if (err.status === 429) {
         localStorage.setItem('ll_login_locked', 'true');
         lockLoginUI();
