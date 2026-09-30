@@ -61,15 +61,43 @@ final class AuthController
 
         $body = read_json();
         $v = new Validator($body);
+        
         $email = $v->email('email');
         $password = (string) ($body['password'] ?? '');
+        $captchaResponse = (string) ($body['g-recaptcha-response'] ?? '');
+        
         if ($password === '') {
             $v->error('password', 'Password is required.');
         }
+        if ($captchaResponse === '') {
+            $v->error('g-recaptcha-response', 'Please complete the CAPTCHA to prove you are human.');
+        }
         $v->done();
 
+        // --- VERIFY CAPTCHA WITH GOOGLE ---
+        $recaptchaSecret = env('RECAPTCHA_SECRET_KEY');
+        $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+        
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => 'Content-Type: application/x-www-form-urlencoded',
+                'content' => http_build_query([
+                    'secret' => $recaptchaSecret,
+                    'response' => $captchaResponse
+                ])
+            ]
+        ]);
+        
+        $verifyResult = file_get_contents($verifyUrl, false, $context);
+        $captchaData = json_decode($verifyResult);
+        
+        if (!$captchaData || !$captchaData->success) {
+            fail(401, 'CAPTCHA verification failed. Please try again.');
+        }
+        // --- END CAPTCHA VERIFICATION ---
+
         $user = q_one('SELECT * FROM users WHERE email = ?', [$email]);
-        // Verify against a dummy hash when the user doesn't exist, so timing doesn't reveal valid emails.
         $hash = $user['password_hash'] ?? '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG';
         
         if (!password_verify($password, $hash) || !$user) {

@@ -122,7 +122,10 @@ render_head('Lazy Ledger');
   </footer>
 </div>
 
-<!-- Login -->
+<!-- Add this script tag anywhere in your <head> or before the closing </body> tag -->
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+<!-- Login Modal -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content p-3 p-md-4">
@@ -132,6 +135,7 @@ render_head('Lazy Ledger');
       </div>
       <form class="modal-body" id="loginForm" novalidate>
         <div class="alert alert-danger py-2 form-error" role="alert" hidden></div>
+        
         <div class="mb-3">
           <label class="form-label" for="loginEmail">Email Address<span class="req">*</span></label>
           <input class="form-control" type="email" id="loginEmail" name="email" autocomplete="email" required maxlength="190">
@@ -143,6 +147,12 @@ render_head('Lazy Ledger');
         <div class="text-end mb-3">
           <button type="button" class="btn-link-ll small" style="color:#f59366" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-content="Please email support@lazyledger.app from your registered address and our staff will reset your password.">Forgot Password?</button>
         </div>
+
+        <!-- Google reCAPTCHA Widget -->
+        <div class="mb-3 d-flex justify-content-center">
+          <div class="g-recaptcha" data-sitekey="YOUR_RECAPTCHA_SITE_KEY_HERE"></div>
+        </div>
+
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
           <span class="fw-bold text-terracotta small">New here? <button type="button" class="btn-link-ll" data-switch="#signupModal">Create Account</button></span>
           <button class="btn btn-ll btn-lg" type="submit">Login</button>

@@ -44,6 +44,27 @@
     sel.value = selected ?? '';
   }
 
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const d = LL.formData(loginForm);
+      
+      LL.submitting(loginForm, async () => {
+        try {
+          const res = await LL.api('/auth/login', { method: 'POST', body: d });
+          window.location.href = res.redirect;
+        } catch (err) {
+          LL.showErrors(loginForm, err);
+          // Reset the CAPTCHA widget so they can try again if they typed the wrong password
+          if (typeof grecaptcha !== 'undefined') {
+            grecaptcha.reset();
+          }
+        }
+      });
+    });
+  }
+
   // ---------- Home ----------
   async function loadHome() {
     $('#monthLabel').textContent = LL.monthLabel(state.month);
