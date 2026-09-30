@@ -214,11 +214,12 @@ function send_security_headers(): void
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header("Content-Security-Policy: default-src 'self'; "
-        . "script-src 'self' https://cdn.jsdelivr.net; "
+        . "script-src 'self' https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com; "
         . "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
         . "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; "
         . "img-src 'self' data:; "
         . "connect-src 'self' https://api.frankfurter.dev; "
+        . "frame-src 'self' https://www.google.com; "
         . "frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
 }
 

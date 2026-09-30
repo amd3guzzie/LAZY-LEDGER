@@ -147,7 +147,7 @@ render_head('Lazy Ledger');
           <button type="button" class="btn-link-ll small" style="color:#f59366" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-content="Please email support@lazyledger.app from your registered address and our staff will reset your password.">Forgot Password?</button>
         </div>
         <div class="mb-3 d-flex justify-content-center">
-          <div class="g-recaptcha" data-sitekey="6LeC6dYtAAAAAB99au6I0sF7Da6Wz6efdgL1RPb9"></div>
+          <div class="g-recaptcha" data-sitekey="6LeC6dYtAAAAAECIlAtZGIffeHlx8gDNwLwYMlO_"></div>
         </div>
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
           <span class="fw-bold text-terracotta small">New here? <button type="button" class="btn-link-ll" data-switch="#signupModal">Create Account</button></span>
