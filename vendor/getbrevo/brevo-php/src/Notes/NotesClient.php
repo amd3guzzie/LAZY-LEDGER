@@ -1,0 +1,350 @@
+<?php
+
+namespace Brevo\Notes;
+
+use Psr\Http\Client\ClientInterface;
+use Brevo\Core\Client\RawClient;
+use Brevo\Notes\Requests\GetCrmNotesRequest;
+use Brevo\Types\Note;
+use Brevo\Exceptions\BrevoException;
+use Brevo\Exceptions\BrevoApiException;
+use Brevo\Core\Json\JsonApiRequest;
+use Brevo\Environments;
+use Brevo\Core\Client\HttpMethod;
+use Brevo\Core\Json\JsonDecoder;
+use JsonException;
+use Psr\Http\Client\ClientExceptionInterface;
+use Brevo\Types\NoteData;
+use Brevo\Notes\Types\PostCrmNotesResponse;
+use Brevo\Notes\Requests\PatchCrmNotesIdRequest;
+
+class NotesClient implements NotesClientInterface
+{
+    /**
+     * @var array{
+     *   baseUrl?: string,
+     *   client?: ClientInterface,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     * } $options @phpstan-ignore-next-line Property is used in endpoint methods via HttpEndpointGenerator
+     */
+    private array $options;
+
+    /**
+     * @var RawClient $client
+     */
+    private RawClient $client;
+
+    /**
+     * @param RawClient $client
+     * @param ?array{
+     *   baseUrl?: string,
+     *   client?: ClientInterface,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     * } $options
+     */
+    public function __construct(
+        RawClient $client,
+        ?array $options = null,
+    ) {
+        $this->client = $client;
+        $this->options = $options ?? [];
+    }
+
+    /**
+     * Retrieve a paginated list of CRM notes with optional filtering by entity type, entity IDs, and date range. Results are sorted by creation date in descending order by default, with a default limit of 50 notes per page.
+     *
+     * Example:
+     * ```php
+     * $client->notes->getAllNotes(
+     *     new GetCrmNotesRequest([]),
+     * );
+     * ```
+     *
+     * @param GetCrmNotesRequest $request
+     * @param ?array{
+     *   baseUrl?: string,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     *   queryParameters?: array<string, mixed>,
+     *   bodyProperties?: array<string, mixed>,
+     * } $options
+     * @return ?array<Note>
+     * @throws BrevoException
+     * @throws BrevoApiException
+     */
+    public function getAllNotes(GetCrmNotesRequest $request = new GetCrmNotesRequest(), ?array $options = null): ?array
+    {
+        $options = array_merge($this->options, $options ?? []);
+        $query = [];
+        if ($request->entity != null) {
+            $query['entity'] = $request->entity;
+        }
+        if ($request->entityIds != null) {
+            $query['entityIds'] = $request->entityIds;
+        }
+        if ($request->dateFrom != null) {
+            $query['dateFrom'] = $request->dateFrom;
+        }
+        if ($request->dateTo != null) {
+            $query['dateTo'] = $request->dateTo;
+        }
+        if ($request->offset != null) {
+            $query['offset'] = $request->offset;
+        }
+        if ($request->limit != null) {
+            $query['limit'] = $request->limit;
+        }
+        if ($request->sort != null) {
+            $query['sort'] = $request->sort;
+        }
+        try {
+            $response = $this->client->sendRequest(
+                new JsonApiRequest(
+                    baseUrl: $options['baseUrl'] ?? $this->client->options['baseUrl'] ?? Environments::Default_->value,
+                    path: "crm/notes",
+                    method: HttpMethod::GET,
+                    query: $query,
+                ),
+                $options,
+            );
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 200 && $statusCode < 400) {
+                $json = $response->getBody()->getContents();
+                if (empty($json)) {
+                    return null;
+                }
+                return JsonDecoder::decodeArray($json, [Note::class]); // @phpstan-ignore-line
+            }
+        } catch (JsonException $e) {
+            throw new BrevoException(message: "Failed to deserialize response: {$e->getMessage()}", previous: $e);
+        } catch (ClientExceptionInterface $e) {
+            throw new BrevoException(message: $e->getMessage(), previous: $e);
+        }
+        throw new BrevoApiException(
+            message: 'API request failed',
+            statusCode: $statusCode,
+            body: $response->getBody()->getContents(),
+        );
+    }
+
+    /**
+     * Create a new CRM note and optionally associate it with contacts, companies, or deals. The note text content is required, and you can link the note to multiple entities simultaneously during creation.
+     *
+     * Example:
+     * ```php
+     * $client->notes->createANote(
+     *     new NoteData([
+     *         'text' => '<p>Meeting notes: <b>Action item</b> - visit <a href="https://www.brevo.com/">Brevo</a> for details.</p>',
+     *     ]),
+     * );
+     * ```
+     *
+     * @param NoteData $request
+     * @param ?array{
+     *   baseUrl?: string,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     *   queryParameters?: array<string, mixed>,
+     *   bodyProperties?: array<string, mixed>,
+     * } $options
+     * @return ?PostCrmNotesResponse
+     * @throws BrevoException
+     * @throws BrevoApiException
+     */
+    public function createANote(NoteData $request, ?array $options = null): ?PostCrmNotesResponse
+    {
+        $options = array_merge($this->options, $options ?? []);
+        try {
+            $response = $this->client->sendRequest(
+                new JsonApiRequest(
+                    baseUrl: $options['baseUrl'] ?? $this->client->options['baseUrl'] ?? Environments::Default_->value,
+                    path: "crm/notes",
+                    method: HttpMethod::POST,
+                    body: $request,
+                ),
+                $options,
+            );
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 200 && $statusCode < 400) {
+                $json = $response->getBody()->getContents();
+                if (empty($json)) {
+                    return null;
+                }
+                return PostCrmNotesResponse::fromJson($json);
+            }
+        } catch (JsonException $e) {
+            throw new BrevoException(message: "Failed to deserialize response: {$e->getMessage()}", previous: $e);
+        } catch (ClientExceptionInterface $e) {
+            throw new BrevoException(message: $e->getMessage(), previous: $e);
+        }
+        throw new BrevoApiException(
+            message: 'API request failed',
+            statusCode: $statusCode,
+            body: $response->getBody()->getContents(),
+        );
+    }
+
+    /**
+     * Retrieve the full details of a single CRM note by its identifier. The response includes the note''s text content, creation date, author, and any associated contacts, companies, or deals.
+     *
+     * Example:
+     * ```php
+     * $client->notes->getANote(
+     *     'id',
+     * );
+     * ```
+     *
+     * @param string $id Note ID to get
+     * @param ?array{
+     *   baseUrl?: string,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     *   queryParameters?: array<string, mixed>,
+     *   bodyProperties?: array<string, mixed>,
+     * } $options
+     * @return ?Note
+     * @throws BrevoException
+     * @throws BrevoApiException
+     */
+    public function getANote(string $id, ?array $options = null): ?Note
+    {
+        $options = array_merge($this->options, $options ?? []);
+        try {
+            $response = $this->client->sendRequest(
+                new JsonApiRequest(
+                    baseUrl: $options['baseUrl'] ?? $this->client->options['baseUrl'] ?? Environments::Default_->value,
+                    path: "crm/notes/{$id}",
+                    method: HttpMethod::GET,
+                ),
+                $options,
+            );
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 200 && $statusCode < 400) {
+                $json = $response->getBody()->getContents();
+                if (empty($json)) {
+                    return null;
+                }
+                return Note::fromJson($json);
+            }
+        } catch (JsonException $e) {
+            throw new BrevoException(message: "Failed to deserialize response: {$e->getMessage()}", previous: $e);
+        } catch (ClientExceptionInterface $e) {
+            throw new BrevoException(message: $e->getMessage(), previous: $e);
+        }
+        throw new BrevoApiException(
+            message: 'API request failed',
+            statusCode: $statusCode,
+            body: $response->getBody()->getContents(),
+        );
+    }
+
+    /**
+     * Permanently delete a CRM note by its identifier. This removes the note and unlinks it from any associated contacts, companies, or deals.
+     *
+     * Example:
+     * ```php
+     * $client->notes->deleteANote(
+     *     'id',
+     * );
+     * ```
+     *
+     * @param string $id Note ID to delete
+     * @param ?array{
+     *   baseUrl?: string,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     *   queryParameters?: array<string, mixed>,
+     *   bodyProperties?: array<string, mixed>,
+     * } $options
+     * @throws BrevoException
+     * @throws BrevoApiException
+     */
+    public function deleteANote(string $id, ?array $options = null): void
+    {
+        $options = array_merge($this->options, $options ?? []);
+        try {
+            $response = $this->client->sendRequest(
+                new JsonApiRequest(
+                    baseUrl: $options['baseUrl'] ?? $this->client->options['baseUrl'] ?? Environments::Default_->value,
+                    path: "crm/notes/{$id}",
+                    method: HttpMethod::DELETE,
+                ),
+                $options,
+            );
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 200 && $statusCode < 400) {
+                return;
+            }
+        } catch (ClientExceptionInterface $e) {
+            throw new BrevoException(message: $e->getMessage(), previous: $e);
+        }
+        throw new BrevoApiException(
+            message: 'API request failed',
+            statusCode: $statusCode,
+            body: $response->getBody()->getContents(),
+        );
+    }
+
+    /**
+     * Update an existing CRM note''s text content and its associations with contacts, companies, or deals. You can modify the note text, change the pinned status, or update the linked entities.
+     *
+     * Example:
+     * ```php
+     * $client->notes->updateANote(
+     *     'id',
+     *     new PatchCrmNotesIdRequest([
+     *         'body' => new NoteData([
+     *             'text' => '<p>Meeting notes: <b>Action item</b> - visit <a href="https://www.brevo.com/">Brevo</a> for details.</p>',
+     *         ]),
+     *     ]),
+     * );
+     * ```
+     *
+     * @param string $id Note ID to update
+     * @param PatchCrmNotesIdRequest $request
+     * @param ?array{
+     *   baseUrl?: string,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     *   queryParameters?: array<string, mixed>,
+     *   bodyProperties?: array<string, mixed>,
+     * } $options
+     * @throws BrevoException
+     * @throws BrevoApiException
+     */
+    public function updateANote(string $id, PatchCrmNotesIdRequest $request, ?array $options = null): void
+    {
+        $options = array_merge($this->options, $options ?? []);
+        try {
+            $response = $this->client->sendRequest(
+                new JsonApiRequest(
+                    baseUrl: $options['baseUrl'] ?? $this->client->options['baseUrl'] ?? Environments::Default_->value,
+                    path: "crm/notes/{$id}",
+                    method: HttpMethod::PATCH,
+                    body: $request->body,
+                ),
+                $options,
+            );
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 200 && $statusCode < 400) {
+                return;
+            }
+        } catch (ClientExceptionInterface $e) {
+            throw new BrevoException(message: $e->getMessage(), previous: $e);
+        }
+        throw new BrevoApiException(
+            message: 'API request failed',
+            statusCode: $statusCode,
+            body: $response->getBody()->getContents(),
+        );
+    }
+}

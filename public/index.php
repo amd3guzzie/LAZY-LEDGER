@@ -1,11 +1,10 @@
-<?php
-declare(strict_types=1);
-
+<?php declare(strict_types=1);
 require_once dirname(__DIR__) . '/src/auth.php';
 require_once dirname(__DIR__) . '/src/views/layout.php';
 
 send_security_headers();
 $user = current_user();
+
 $team = [
     ['Agapito, Raphael Lian', 'Database / API Developer'],
     ['De Guzman, Alyssa Mae', 'Project Manager'],
@@ -83,10 +82,9 @@ render_head('Lazy Ledger');
     </div>
   </section>
 
-  <section class="panel p-4 p-md-5 mb-3 text-center" id="about">
+<section class="panel p-4 p-md-5 mb-3 text-center" id="about">
     <h2 class="section-title mb-3">ABOUT LAZY LEDGER</h2>
-    <p class="hero-copy mx-auto" style="max-width: 900px">LazyLedger combines a secure, role-based backend architecture with a clean, responsive frontend interface. By integrating a MySQL database, a PHP REST API, and external APIs — such as live currency conversion — we strive to deliver a reliable, full-stack application that bridges academic concepts with real-world usability.</p>
-
+    <p class="hero-copy mx-auto" style="max-width: 900px">LazyLedger combines a secure, role-based backend architecture with a clean, responsive frontend interface. By integrating a MySQL database, a PHP REST API, and external APIs   such as live currency conversion   we strive to deliver a reliable, full-stack application that bridges academic concepts with real-world usability.</p>
     <div class="team-panel p-4 p-md-5 mt-4">
       <h2 class="section-title">MEET THE TEAM</h2>
       <p class="fw-bold fs-5" style="color: var(--ll-steel)">The student developers behind LazyLedger.</p>
@@ -120,7 +118,7 @@ render_head('Lazy Ledger');
         </div>
       </div>
     </div>
-    <p class="text-center text-terracotta fw-bold small mt-4 mb-0">All rights reserved. © <?= date('Y') ?> LazyLedger. | Developed as a final project for ITS122P by Group 6.</p>
+    <p class="text-center text-terracotta fw-bold small mt-4 mb-0">All rights reserved.   <?= date('Y') ?> LazyLedger. | Developed as a final project for ITS122P by Group 6.</p>
   </footer>
 </div>
 
@@ -129,8 +127,7 @@ render_head('Lazy Ledger');
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content p-3 p-md-4">
       <div class="modal-header pb-0">
-        <h2 class="brand d-flex align-items-center gap-2 text-decoration-none" href="#top">
-        <img src="/assets/img/logo.png" style="height: 36px; width: auto;">LAZY LEDGER</h2>
+        <h2 class="brand fs-2 m-0" id="loginTitle"><span class="brand-dot" aria-hidden="true"></span>LAZY LEDGER</h2>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form class="modal-body" id="loginForm" novalidate>
@@ -160,8 +157,7 @@ render_head('Lazy Ledger');
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content p-3 p-md-4">
       <div class="modal-header pb-0 justify-content-center position-relative">
-        <h2 class="brand d-flex align-items-center gap-2 text-decoration-none" href="#top">
-        <img src="/assets/img/logo.png" style="height: 36px; width: auto;">LAZY LEDGER</h2>
+        <h2 class="brand fs-2 m-0" id="signupTitle"><span class="brand-dot" aria-hidden="true"></span>LAZY LEDGER</h2>
         <button type="button" class="btn-close position-absolute end-0 me-3" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form class="modal-body" id="signupForm" novalidate>
@@ -204,6 +200,6 @@ render_head('Lazy Ledger');
 <?php render_common_ui(); ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script src="/assets/js/api.js"></script>
-<script src="/assets/js/landing.js?v=locked"></script> 
+<script src="/assets/js/landing.js?v=nopaste"></script>
 </body>
 </html>

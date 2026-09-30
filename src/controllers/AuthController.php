@@ -1,5 +1,7 @@
 <?php declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/mailer.php';
+
 final class AuthController
 {
     private const MAX_ATTEMPTS = 5;
@@ -32,7 +34,17 @@ final class AuthController
             [$first, $last, $email, password_hash($password, PASSWORD_DEFAULT), 'customer']
         );
         $user = q_one('SELECT * FROM users WHERE id = ?', [(int) db()->lastInsertId()]);
+        
         notify((int) $user['id'], 'Welcome to LazyLedger! Start by adding an account and setting a budget.');
+        
+        // Send the welcome email via Brevo
+        send_transactional_email(
+            $user['email'], 
+            $user['first_name'], 
+            'Welcome to LazyLedger!', 
+            '<h1>Welcome!</h1><p>Start by adding an account and setting your first budget.</p>'
+        );
+
         login_session($user);
         q('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$user['id']]);
 

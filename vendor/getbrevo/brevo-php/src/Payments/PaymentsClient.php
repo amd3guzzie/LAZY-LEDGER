@@ -1,0 +1,219 @@
+<?php
+
+namespace Brevo\Payments;
+
+use Psr\Http\Client\ClientInterface;
+use Brevo\Core\Client\RawClient;
+use Brevo\Payments\Requests\CreatePaymentRequestRequest;
+use Brevo\Payments\Types\CreatePaymentRequestResponse;
+use Brevo\Exceptions\BrevoException;
+use Brevo\Exceptions\BrevoApiException;
+use Brevo\Core\Json\JsonApiRequest;
+use Brevo\Environments;
+use Brevo\Core\Client\HttpMethod;
+use JsonException;
+use Psr\Http\Client\ClientExceptionInterface;
+use Brevo\Payments\Types\GetPaymentRequestResponse;
+
+class PaymentsClient implements PaymentsClientInterface
+{
+    /**
+     * @var array{
+     *   baseUrl?: string,
+     *   client?: ClientInterface,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     * } $options @phpstan-ignore-next-line Property is used in endpoint methods via HttpEndpointGenerator
+     */
+    private array $options;
+
+    /**
+     * @var RawClient $client
+     */
+    private RawClient $client;
+
+    /**
+     * @param RawClient $client
+     * @param ?array{
+     *   baseUrl?: string,
+     *   client?: ClientInterface,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     * } $options
+     */
+    public function __construct(
+        RawClient $client,
+        ?array $options = null,
+    ) {
+        $this->client = $client;
+        $this->options = $options ?? [];
+    }
+
+    /**
+     * Create a new payment request for a Brevo contact. The request requires a reference (displayed on the payment page), a contact ID, and a cart with currency and amount in cents. You can optionally configure a custom success redirect URL and enable email notifications with reminders. Returns the payment request ID and its public payment URL. A `403` error is returned if Brevo Payments is not activated or the account is not validated.
+     *
+     * Example:
+     * ```php
+     * $client->payments->createPaymentRequest(
+     *     new CreatePaymentRequestRequest([
+     *         'cart' => new Cart([
+     *             'currency' => 'EUR',
+     *             'specificAmount' => 1200,
+     *         ]),
+     *         'contactId' => 43,
+     *         'reference' => 'Invoice #INV0001',
+     *     ]),
+     * );
+     * ```
+     *
+     * @param CreatePaymentRequestRequest $request
+     * @param ?array{
+     *   baseUrl?: string,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     *   queryParameters?: array<string, mixed>,
+     *   bodyProperties?: array<string, mixed>,
+     * } $options
+     * @return ?CreatePaymentRequestResponse
+     * @throws BrevoException
+     * @throws BrevoApiException
+     */
+    public function createPaymentRequest(CreatePaymentRequestRequest $request, ?array $options = null): ?CreatePaymentRequestResponse
+    {
+        $options = array_merge($this->options, $options ?? []);
+        try {
+            $response = $this->client->sendRequest(
+                new JsonApiRequest(
+                    baseUrl: $options['baseUrl'] ?? $this->client->options['baseUrl'] ?? Environments::Default_->value,
+                    path: "payments/requests",
+                    method: HttpMethod::POST,
+                    body: $request,
+                ),
+                $options,
+            );
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 200 && $statusCode < 400) {
+                $json = $response->getBody()->getContents();
+                if (empty($json)) {
+                    return null;
+                }
+                return CreatePaymentRequestResponse::fromJson($json);
+            }
+        } catch (JsonException $e) {
+            throw new BrevoException(message: "Failed to deserialize response: {$e->getMessage()}", previous: $e);
+        } catch (ClientExceptionInterface $e) {
+            throw new BrevoException(message: $e->getMessage(), previous: $e);
+        }
+        throw new BrevoApiException(
+            message: 'API request failed',
+            statusCode: $statusCode,
+            body: $response->getBody()->getContents(),
+        );
+    }
+
+    /**
+     * Retrieve the details of a specific payment request by its ID. The response includes the reference, status (created, sent, reminderSent, or paid), cart details, notification configuration, contact ID, and the number of reminders sent. Returns a `404` error if no payment request matches the provided ID.
+     *
+     * Example:
+     * ```php
+     * $client->payments->getPaymentRequest(
+     *     '050db7b0-9bb7-4c1e-9c68-5a8dace8c1dc',
+     * );
+     * ```
+     *
+     * @param string $id Id of the payment Request
+     * @param ?array{
+     *   baseUrl?: string,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     *   queryParameters?: array<string, mixed>,
+     *   bodyProperties?: array<string, mixed>,
+     * } $options
+     * @return ?GetPaymentRequestResponse
+     * @throws BrevoException
+     * @throws BrevoApiException
+     */
+    public function getPaymentRequest(string $id, ?array $options = null): ?GetPaymentRequestResponse
+    {
+        $options = array_merge($this->options, $options ?? []);
+        try {
+            $response = $this->client->sendRequest(
+                new JsonApiRequest(
+                    baseUrl: $options['baseUrl'] ?? $this->client->options['baseUrl'] ?? Environments::Default_->value,
+                    path: "payments/requests/{$id}",
+                    method: HttpMethod::GET,
+                ),
+                $options,
+            );
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 200 && $statusCode < 400) {
+                $json = $response->getBody()->getContents();
+                if (empty($json)) {
+                    return null;
+                }
+                return GetPaymentRequestResponse::fromJson($json);
+            }
+        } catch (JsonException $e) {
+            throw new BrevoException(message: "Failed to deserialize response: {$e->getMessage()}", previous: $e);
+        } catch (ClientExceptionInterface $e) {
+            throw new BrevoException(message: $e->getMessage(), previous: $e);
+        }
+        throw new BrevoApiException(
+            message: 'API request failed',
+            statusCode: $statusCode,
+            body: $response->getBody()->getContents(),
+        );
+    }
+
+    /**
+     * Delete a payment request by its UUID. Once deleted, the payment request can no longer be accessed or paid. Returns a `404` error if no payment request matches the provided ID, and a `403` error if Brevo Payments is not activated or the account is not validated.
+     *
+     * Example:
+     * ```php
+     * $client->payments->deletePaymentRequest(
+     *     '9ae7d68a-565c-4695-9381-d8fb3e3a14cc',
+     * );
+     * ```
+     *
+     * @param string $id ID of the payment request.
+     * @param ?array{
+     *   baseUrl?: string,
+     *   maxRetries?: int,
+     *   timeout?: float,
+     *   headers?: array<string, string>,
+     *   queryParameters?: array<string, mixed>,
+     *   bodyProperties?: array<string, mixed>,
+     * } $options
+     * @throws BrevoException
+     * @throws BrevoApiException
+     */
+    public function deletePaymentRequest(string $id, ?array $options = null): void
+    {
+        $options = array_merge($this->options, $options ?? []);
+        try {
+            $response = $this->client->sendRequest(
+                new JsonApiRequest(
+                    baseUrl: $options['baseUrl'] ?? $this->client->options['baseUrl'] ?? Environments::Default_->value,
+                    path: "payments/requests/{$id}",
+                    method: HttpMethod::DELETE,
+                ),
+                $options,
+            );
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 200 && $statusCode < 400) {
+                return;
+            }
+        } catch (ClientExceptionInterface $e) {
+            throw new BrevoException(message: $e->getMessage(), previous: $e);
+        }
+        throw new BrevoApiException(
+            message: 'API request failed',
+            statusCode: $statusCode,
+            body: $response->getBody()->getContents(),
+        );
+    }
+}
