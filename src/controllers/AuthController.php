@@ -74,7 +74,8 @@ final class AuthController
         }
         $v->done();
 
-        $recaptchaSecret = env('6LeC6dYtAAAAAB99au6I0sF7Da6Wz6efdgL1RPb9');
+        // Hardcoding the secret string directly since env() expects a variable name
+        $recaptchaSecret = '6LeC6dYtAAAAAB99au6I0sF7Da6Wz6efdgL1RPb9';
         $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
         
         $context = stream_context_create([

@@ -70,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
     LL.clearErrors(loginForm);
     if (btn) btn.disabled = true;
 
-    // Execute reCAPTCHA v3 silently
     grecaptcha.ready(function() {
       grecaptcha.execute('6LeC6dYtAAAAAECIlAtZGIffeHlx8gDNwLwYMlO_', {action: 'login'}).then(async function(token) {
         data['g-recaptcha-response'] = token;
