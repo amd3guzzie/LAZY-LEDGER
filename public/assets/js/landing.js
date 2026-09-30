@@ -51,16 +51,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = LL.formData(loginForm);
     const fields = {};
     
-    if (!emailOk(data.email)) fields.email = 'Please enter a valid email address.';
-    if (!loginForm.elements.password.value) fields.password = 'Password is required.';
+    if (typeof emailOk === 'function' && !emailOk(data.email)) {
+      fields.email = 'Please enter a valid email address.';
+    } else if (!data.email) {
+      fields.email = 'Email is required.';
+    }
     
-    // Ensure the CAPTCHA was checked before hitting the server
-    if (!data['g-recaptcha-response']) {
-        fields['g-recaptcha-response'] = 'Please complete the CAPTCHA.';
+    if (!loginForm.elements.password.value) {
+      fields.password = 'Password is required.';
     }
 
-    if (Object.keys(fields).length) return LL.showErrors(loginForm, { fields });
+    if (Object.keys(fields).length) {
+      return LL.showErrors(loginForm, { fields });
+    }
     
+    // Safely grab the Google reCAPTCHA token directly from the API
+    const captchaValue = typeof grecaptcha !== 'undefined' ? grecaptcha.getResponse() : '';
+    if (!captchaValue) {
+      // Pass a standard Error object so the UI displays this exact text
+      return LL.showErrors(loginForm, new Error('Please check the "I am not a robot" box to continue.'));
+    }
+    
+    data['g-recaptcha-response'] = captchaValue;
     data.password = loginForm.elements.password.value; // never trim passwords
     
     const btn = loginForm.querySelector('[type="submit"]');
@@ -82,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (err.status === 429) {
         localStorage.setItem('ll_login_locked', 'true');
-        lockLoginUI();
+        if (typeof lockLoginUI === 'function') lockLoginUI();
       } else {
         LL.showErrors(loginForm, err);
         if (btn) btn.disabled = false;
