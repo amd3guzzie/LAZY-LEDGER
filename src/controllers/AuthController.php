@@ -47,7 +47,9 @@ final class AuthController
 
         login_session($user);
         q('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$user['id']]);
+
         audit((int)$user['id'], 'LOGIN', 'user', (int)$user['id'], 'User authenticated successfully.');
+
         return ['user' => public_user($user), 'redirect' => home_for_role($user['role']), 'csrf' => csrf_token()];
     }
 
