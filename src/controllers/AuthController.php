@@ -35,6 +35,8 @@ final class AuthController
             [$first, $last, $email, password_hash($password, PASSWORD_DEFAULT), 'customer']
         );
         $user = q_one('SELECT * FROM users WHERE id = ?', [(int) db()->lastInsertId()]);
+
+        audit((int)$user['id'], 'REGISTER', 'user', (int)$user['id'], 'Registered a new account.');
         
         notify((int) $user['id'], 'Welcome to LazyLedger! Start by adding an account and setting a budget.');
         
@@ -191,6 +193,8 @@ final class AuthController
             'UPDATE users SET first_name = ?, last_name = ?, email = ?, budget_alerts = ?, bill_reminders = ? WHERE id = ?',
             [$first, $last, $newEmail, $budgetAlerts, $billReminders, $user['id']]
         );
+
+        audit((int)$user['id'], 'PROFILE_UPDATE', 'user', (int)$user['id'], 'Updated profile information.');
 
         // Alert the OLD email about the change
         if ($newEmail !== $currentDbUser['email']) {

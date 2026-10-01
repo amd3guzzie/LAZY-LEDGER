@@ -140,7 +140,12 @@ render_head('Lazy Ledger');
         </div>
         <div class="mb-1">
           <label class="form-label" for="loginPassword">Password<span class="req">*</span></label>
-          <input class="form-control" type="password" id="loginPassword" name="password" autocomplete="current-password" required>
+          <div class="input-group">
+            <input class="form-control" type="password" id="loginPassword" name="password" autocomplete="current-password" required maxlength="128">
+            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#loginPassword" style="border: 2px solid #c77a5f; background-color: white;">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
         </div>
         <div class="text-end mb-3">
           <button type="button" class="btn-link-ll small" style="color:#f59366" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-content="Please email support@lazyledger.app from your registered address and our staff will reset your password.">Forgot Password?</button>
@@ -181,7 +186,7 @@ render_head('Lazy Ledger');
           </div>
           <div class="col-md-6">
             <label class="form-label" for="regPassword">Password<span class="req">*</span></label>
-            <input class="form-control" type="password" id="regPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="72" aria-describedby="pwHelp">
+            <input class="form-control" type="password" id="regPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="128" aria-describedby="pwHelp">
             <div class="form-text" id="pwHelp">At least 8 characters, with a letter and a number.</div>
           </div>
           <div class="col-md-6">

@@ -412,8 +412,10 @@
   // ---------- Event wiring ----------
   function wire() {
     LL.bindLogout();
+    if (window.location.pathname === '/customer' || window.location.pathname.includes('app.php')) {
     $('#headerActions').innerHTML = '<button class="btn btn-ll d-none d-sm-inline-block" data-action="add-transaction"><i class="bi bi-plus-lg"></i> Add transaction</button>'
       + '<button class="btn btn-ll d-sm-none" data-action="add-transaction" aria-label="Add transaction"><i class="bi bi-plus-lg"></i></button>';
+}
 
     document.addEventListener('click', async (e) => {
       const t = e.target.closest('[data-action],[data-edit-tx],[data-del-tx],[data-edit-account],[data-edit-budget],[data-read]');

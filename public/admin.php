@@ -80,7 +80,7 @@ render_shell_start($user, [
 <section class="view" data-view="audit" hidden aria-labelledby="auditTitle">
   <div class="content-panel">
     <h1 class="page-title mb-3" id="auditTitle">Audit Log</h1>
-    <p class="privacy-note">Append-only record of sensitive staff and admin actions. Entries cannot be edited or deleted.</p>
+    <p class="privacy-note">Append-only record. Entries cannot be edited or deleted.</p>
     <form class="row g-2 mb-2" id="auditFilter" role="search">
       <div class="col-md-6"><label class="visually-hidden" for="aQ">Search</label><input class="form-control border-0" type="search" id="aQ" name="q" placeholder="Search action, details or email"></div>
       <div class="col-6 col-md-3"><label class="form-label small visually-hidden" for="aFrom">From</label><input class="form-control border-0" type="date" id="aFrom" name="from" aria-label="From date"></div>

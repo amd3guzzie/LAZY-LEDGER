@@ -43,7 +43,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
-  // --- LOGIN FORM ---
+// --- PASSWORD VISIBILITY TOGGLE ---
+  document.querySelectorAll('.toggle-password').forEach(button => {
+    button.addEventListener('click', function() {
+      const input = document.querySelector(this.dataset.target);
+      const icon = this.querySelector('i');
+      
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+        icon.style.color = '#c77a5f';
+      } else {
+        input.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+        icon.style.color = '#c77a5f';
+      }
+    });
+  });
+
  // --- LOGIN FORM ---
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
