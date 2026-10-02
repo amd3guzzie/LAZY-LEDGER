@@ -32,7 +32,7 @@ function render_shell_start(array $user, array $nav, string $roleLabel): void
 {
     $name = trim($user['first_name'] . ' ' . $user['last_name']);
     ?>
-<body class="app" data-user-id="<?= (int) $user['id'] ?>">
+<body class="app" data-user-id="<?= (int) $user['id'] ?>" data-currency="<?= e($user['currency'] ?? 'PHP') ?>" data-tour="<?= empty($user['tour_completed_at']) ? 'pending' : 'done' ?>">
 <a class="visually-hidden-focusable" href="#main">Skip to content</a>
 <div class="app-shell">
   <main class="app-main" id="main">

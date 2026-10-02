@@ -51,8 +51,8 @@ final class AdminController
                  GROUP BY c.id, c.name ORDER BY uses DESC LIMIT 5'
             ),
             'recent_activity' => q_all(
-                'SELECT l.action, l.target_type, l.details, l.created_at, CONCAT(u.first_name, \' \', u.last_name) AS actor
-                 FROM audit_log l LEFT JOIN users u ON u.id = l.actor_id ORDER BY l.created_at DESC, l.id DESC LIMIT 6'
+                'SELECT l.action, l.target_type, l.details, l.created_at, CONCAT(u.first_name, \' \', u.last_name) AS actor, u.role AS actor_role
+                 FROM audit_log l LEFT JOIN users u ON u.id = l.actor_id ORDER BY l.created_at DESC, l.id DESC LIMIT 8'
             ),
         ];
     }
@@ -220,6 +220,14 @@ final class AdminController
             $like = '%' . addcslashes($qStr, '%_\\') . '%';
             $where[] = '(l.action LIKE ? OR l.details LIKE ? OR u.email LIKE ?)';
             array_push($params, $like, $like, $like);
+        }
+        if (in_array($_GET['role'] ?? '', self::ROLES, true)) {
+            $where[] = 'u.role = ?';
+            $params[] = $_GET['role'];
+        }
+        if (($_GET['category'] ?? '') !== '' && preg_match('/^[a-z_]+$/', (string) $_GET['category'])) {
+            $where[] = 'l.action LIKE ?';
+            $params[] = $_GET['category'] . '.%';
         }
         if (valid_date((string) ($_GET['from'] ?? ''))) {
             $where[] = 'l.created_at >= ?';

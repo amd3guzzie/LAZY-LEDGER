@@ -3,8 +3,10 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/src/auth.php';
 require_once dirname(__DIR__) . '/src/views/layout.php';
+require_once dirname(__DIR__) . '/src/currencies.php';
 
 $user = page_guard('customer');
+$currency = $user['currency'] ?? 'PHP';
 render_head('Dashboard');
 render_shell_start($user, [
     ['home', 'Home', 'bi-house-door-fill'],
@@ -18,14 +20,70 @@ render_shell_start($user, [
 
 <!-- ============ HOME ============ -->
 <section class="view" data-view="home" aria-labelledby="homeTitle">
-  <!-- Onboarding (shown until the user has an account, a budget and a transaction) -->
-  <div id="onboarding" hidden>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="page-title" id="homeTitle">Home</h1>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <div class="btn-group" role="group" aria-label="Month" id="monthNav">
+        <button class="btn btn-ll-outline btn-sm" id="prevMonth" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
+        <span class="btn btn-ll-outline btn-sm disabled fw-800" id="monthLabel" style="min-width:9.5rem"></span>
+        <button class="btn btn-ll-outline btn-sm" id="nextMonth" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
+      </div>
+      <label class="visually-hidden" for="currencySelect">Display currency</label>
+      <select class="form-select form-select-sm currency-select" id="currencySelect" title="Live rates from the Frankfurter API">
+        <?php foreach (CURRENCIES as $code => $label): ?>
+          <option value="<?= e($code) ?>"<?= $code === $currency ? ' selected' : '' ?>><?= e($code === $currency ? "$code (your currency)" : "$code — $label") ?></option>
+        <?php endforeach; ?>
+      </select>
+      <button class="btn btn-ll-outline btn-sm" type="button" data-action="tour" aria-label="Take the dashboard tour" title="Take the dashboard tour"><i class="bi bi-question-circle-fill"></i> Tour</button>
+    </div>
+  </div>
+  <p class="small fw-bold text-muted-ll mb-2" id="rateNote" hidden></p>
+
+  <!-- Budget: the focal point of Home -->
+  <div class="content-panel budget-hero mb-3" id="budgetHero">
+    <div id="heroBody">
+      <div class="row g-4">
+        <div class="col-lg-5">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <h2 class="stat-label mb-0">Monthly budget · <span id="heroMonth"></span></h2>
+            <button class="btn-icon" data-action="set-total" aria-label="Edit monthly budget total"><i class="bi bi-pencil-fill"></i></button>
+          </div>
+          <div class="hero-amount" id="heroLeft">—</div>
+          <div class="hero-sub" id="heroLeftLabel">left to spend</div>
+          <div class="hero-meter" id="heroMeter" role="progressbar" aria-label="Share of monthly budget used" aria-valuemin="0" aria-valuemax="100"><div></div></div>
+          <div class="d-flex justify-content-between flex-wrap gap-1 fw-bold small mt-2">
+            <span>Spent <span id="heroSpent">—</span></span>
+            <span>Budget <span id="heroBudgeted">—</span></span>
+          </div>
+          <p class="pace-note mt-3 mb-0" id="heroPace"></p>
+        </div>
+        <div class="col-lg-7">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="ll-card-title">Category budgets</h2>
+            <a class="see-all" href="#budgets">Manage budgets</a>
+          </div>
+          <div id="homeBudgets"></div>
+        </div>
+      </div>
+    </div>
+    <div id="heroEmpty" class="text-center py-3" hidden>
+      <h2 class="stat-label mb-1">Monthly budget · <span id="heroEmptyMonth"></span></h2>
+      <p class="fw-bold text-muted-ll fs-5 mb-3">You haven't set a budget for this month yet. A budget shows you exactly how much you have left to spend.</p>
+      <div class="d-flex flex-wrap justify-content-center gap-2">
+        <button class="btn btn-ll" data-action="set-total"><i class="bi bi-wallet-fill"></i> Set a monthly budget</button>
+        <button class="btn btn-ll-outline" data-action="add-budget"><i class="bi bi-tag"></i> Add a category budget</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Onboarding (shown until the user has added a transaction) -->
+  <div id="onboarding" class="mb-3" hidden>
     <div class="row g-3">
       <div class="col-lg-8">
         <div class="content-panel h-100">
-          <h1 class="page-title" style="font-size:clamp(2rem,6vw,3.6rem)">Welcome, <span id="welcomeName"><?= e($user['first_name']) ?></span>!</h1>
+          <h2 class="page-title" style="font-size:clamp(1.8rem,5vw,3rem)">Welcome, <span id="welcomeName"><?= e($user['first_name']) ?></span>!</h2>
           <p class="fw-bold text-muted-ll fs-5">Three quick steps and you'll see where your money goes.</p>
-          <div class="ll-card">
+          <div class="ll-card h-auto">
             <div class="onboard-step">
               <div class="step-num done"><i class="bi bi-check-lg"></i></div>
               <div class="flex-grow-1"><p class="step-title">Create your LazyLedger account</p></div>
@@ -39,7 +97,7 @@ render_shell_start($user, [
             <div class="onboard-step" data-step="budgets">
               <div class="step-num">3</div>
               <div class="flex-grow-1"><p class="step-title">Set your monthly budget</p><p class="step-sub">Pick a total, then split it by category.</p></div>
-              <a class="btn btn-ll btn-sm" href="#budgets">Set budget</a>
+              <button class="btn btn-ll btn-sm" data-action="set-total">Set budget</button>
             </div>
             <div class="onboard-step" data-step="transactions">
               <div class="step-num">4</div>
@@ -50,43 +108,20 @@ render_shell_start($user, [
         </div>
       </div>
       <div class="col-lg-4 d-flex flex-column gap-3">
-        <div class="ll-card empty-hint"><img src="/assets/img/new-user-section-1.png" alt=""><h3>Plan Your Spending</h3><p class="mb-0">Your budgets will show up here with progress bars.</p></div>
+        <div class="ll-card empty-hint"><img src="/assets/img/new-user-section-1.png" alt=""><h3>Plan Your Spending</h3><p class="mb-0">Your budget sits at the top of Home, so you always know what's left.</p></div>
         <div class="ll-card empty-hint"><img src="/assets/img/new-user-section-2.png" alt=""><h3 style="color:var(--ll-steel)">Track Your Purchase</h3><p class="mb-0">Recent transactions and your spending chart will appear here.</p></div>
       </div>
     </div>
   </div>
 
+  <div id="alertBox"></div>
+
   <div id="homeMain">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-      <h1 class="page-title" id="homeTitle">Home</h1>
-      <div class="d-flex align-items-center gap-2">
-        <div class="btn-group" role="group" aria-label="Month">
-          <button class="btn btn-ll-outline btn-sm" id="prevMonth" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
-          <span class="btn btn-ll-outline btn-sm disabled fw-800" id="monthLabel" style="min-width:9.5rem"></span>
-          <button class="btn btn-ll-outline btn-sm" id="nextMonth" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
-        </div>
-        <button class="btn btn-ll-outline btn-sm" id="currencyBtn" title="Uses live rates from the Frankfurter API">View in USD</button>
-      </div>
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6"><div class="ll-card stat-card"><div class="stat-label">Income</div><div class="stat-value" id="incomeTotal">—</div><div class="stat-sub" id="incomeChange"></div></div></div>
+      <div class="col-sm-6"><div class="ll-card stat-card"><div class="stat-label">Expenses</div><div class="stat-value" id="expenseTotal">—</div><div class="stat-sub" id="expenseChange"></div></div></div>
     </div>
-    <p class="small fw-bold text-muted-ll mb-2" id="rateNote" hidden></p>
-
-    <div class="content-panel mb-3">
-      <div class="row g-3">
-        <div class="col-md-4"><div class="ll-card stat-card"><div class="stat-label">Left to spend</div><div class="stat-value" id="leftToSpend">—</div><div class="stat-sub" id="pctUsed"></div></div></div>
-        <div class="col-md-4"><div class="ll-card stat-card"><div class="stat-label">Income</div><div class="stat-value" id="incomeTotal">—</div><div class="stat-sub" id="incomeChange"></div></div></div>
-        <div class="col-md-4"><div class="ll-card stat-card"><div class="stat-label">Expenses</div><div class="stat-value" id="expenseTotal">—</div><div class="stat-sub" id="expenseChange"></div></div></div>
-      </div>
-    </div>
-
-    <div id="alertBox"></div>
-
     <div class="row g-3">
-      <div class="col-lg-6">
-        <div class="ll-card">
-          <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="ll-card-title">Budgets</h2><a class="see-all" href="#budgets">See all</a></div>
-          <div id="homeBudgets"></div>
-        </div>
-      </div>
       <div class="col-lg-6">
         <div class="ll-card">
           <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="ll-card-title">Recent transactions</h2><a class="see-all" href="#transactions">See all</a></div>
@@ -105,7 +140,7 @@ render_shell_start($user, [
           <p class="empty-hint mb-0" id="donutEmpty" hidden>No expenses this month yet.</p>
         </div>
       </div>
-      <div class="col-lg-6">
+      <div class="col-12">
         <div class="ll-card">
           <h2 class="ll-card-title mb-2">Coming up</h2>
           <ul class="list-unstyled mb-0" id="homeUpcoming"></ul>
@@ -344,7 +379,7 @@ render_shell_start($user, [
         </div>
         <div class="mb-2"><label class="form-label" for="txDesc">Description<span class="req">*</span></label><input class="form-control" id="txDesc" name="description" maxlength="120" required placeholder="e.g. SM Supermarket"></div>
         <div class="row g-2 mb-2">
-          <div class="col-6"><label class="form-label" for="txAmount">Amount (₱)<span class="req">*</span></label><input class="form-control" type="number" id="txAmount" name="amount" min="0.01" step="0.01" required inputmode="decimal"></div>
+          <div class="col-6"><label class="form-label" for="txAmount">Amount (<span data-cur-symbol></span>)<span class="req">*</span></label><input class="form-control" type="number" id="txAmount" name="amount" min="0.01" step="0.01" required inputmode="decimal"></div>
           <div class="col-6"><label class="form-label" for="txDate">Date<span class="req">*</span></label><input class="form-control" type="date" id="txDate" name="transaction_date" required></div>
         </div>
         <div class="row g-2">
@@ -369,7 +404,7 @@ render_shell_start($user, [
           <select class="form-select" id="accType" name="type" required>
             <option value="cash">Cash</option><option value="bank">Bank</option><option value="e_wallet">E-wallet</option><option value="savings">Savings</option><option value="credit_card">Credit card</option>
           </select></div>
-        <div class="mb-2"><label class="form-label" for="accOpening" id="accOpeningLabel">Starting balance (₱)</label><input class="form-control" type="number" id="accOpening" name="opening_balance" min="0" step="0.01" value="0" inputmode="decimal"></div>
+        <div class="mb-2"><label class="form-label" for="accOpening" id="accOpeningLabel">Starting balance</label><input class="form-control" type="number" id="accOpening" name="opening_balance" min="0" step="0.01" value="0" inputmode="decimal"></div>
         <div class="mb-2" id="accDueWrap" hidden><label class="form-label" for="accDue">Payment due date</label><input class="form-control" type="date" id="accDue" name="due_date"></div>
       </div>
       <div class="modal-footer justify-content-between">
@@ -388,7 +423,7 @@ render_shell_start($user, [
         <div class="alert alert-danger py-2 form-error" hidden></div>
         <input type="hidden" name="id">
         <div class="mb-2"><label class="form-label" for="bCategory">Category<span class="req">*</span></label><select class="form-select" id="bCategory" name="category_id" required></select></div>
-        <div class="mb-2"><label class="form-label" for="bLimit">Monthly limit (₱)<span class="req">*</span></label><input class="form-control" type="number" id="bLimit" name="amount_limit" min="0.01" step="0.01" required inputmode="decimal"></div>
+        <div class="mb-2"><label class="form-label" for="bLimit">Monthly limit (<span data-cur-symbol></span>)<span class="req">*</span></label><input class="form-control" type="number" id="bLimit" name="amount_limit" min="0.01" step="0.01" required inputmode="decimal"></div>
         <p class="small fw-bold text-muted-ll mb-0">Applies to <span id="bMonthLabel"></span>.</p>
       </div>
       <div class="modal-footer justify-content-between">
@@ -405,7 +440,7 @@ render_shell_start($user, [
       <div class="modal-header"><h2 class="modal-title fs-5" id="totalModalTitle">Total monthly budget</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
         <div class="alert alert-danger py-2 form-error" hidden></div>
-        <label class="form-label" for="totalAmount">Amount (₱)</label>
+        <label class="form-label" for="totalAmount">Amount (<span data-cur-symbol></span>)</label>
         <input class="form-control" type="number" id="totalAmount" name="monthly_budget" min="0.01" step="0.01" inputmode="decimal">
         <p class="small text-muted-ll fw-bold mt-2 mb-0">Leave blank to use the sum of your category budgets.</p>
       </div>
@@ -477,5 +512,6 @@ render_shell_start($user, [
 <?php render_shell_end([
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
     '/assets/js/api.js',
+    '/assets/js/tour.js',
     '/assets/js/customer.js',
 ]); ?>

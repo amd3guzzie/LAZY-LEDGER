@@ -2,8 +2,8 @@
 
 Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 
-- **Auth**: PHP session cookie (`lazyledger_sid`), set by `POST /auth/login` or `POST /auth/register`.
-- **CSRF**: every `POST`, `PUT`, `DELETE` must send `X-CSRF-Token: <token>`. Pages expose the token in `<meta name="csrf-token">`; login/register also return a fresh `csrf`.
+- **Auth**: PHP session cookie (`lazyledger_sid`), set by `POST /auth/login` (registering does not log you in).
+- **CSRF**: every `POST`, `PUT`, `DELETE` must send `X-CSRF-Token: <token>`. Pages expose the token in `<meta name="csrf-token">`; login also returns a fresh `csrf`.
 - **Errors**: `{ "error": "message", "fields": { "field": "message" } }` with status `401` (not logged in), `403` (wrong role / bad CSRF), `404`, `405`, `409` (duplicate/conflict), `422` (validation), `429` (too many login attempts), `500`.
 - **Pagination** (list endpoints that page): `?page=1&per_page=10` → `{ "data": [...], "meta": { "page", "per_page", "total", "pages" } }`.
 
@@ -11,7 +11,7 @@ Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/auth/register` | `first_name, last_name?, email, password, confirm_password` | Creates a customer and logs in. Password: 8–72 chars, letter + number. |
+| POST | `/auth/register` | `first_name, last_name?, email, birth_date, gender, currency, password, confirm_password, privacy_consent` | Creates a customer but does **not** log in; the user must then `POST /auth/login`. Password: 8–72 chars, letter + number. `birth_date`: `YYYY-MM-DD`, age 13+. `gender`: `male`, `female`, `non_binary`, `prefer_not_to_say`. `currency`: an ISO code supported by Frankfurter (see `src/currencies.php`); every amount the user stores is in this currency. `privacy_consent` must be JSON `true` (agreement to the Data Privacy Notice; time is stored). |
 | POST | `/auth/login` | `email, password` | Returns `user`, `redirect`, `csrf`. |
 | POST | `/auth/logout` | — | Destroys the session. |
 | GET | `/auth/me` | — | Current user. |
@@ -21,9 +21,10 @@ Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 | Method | Path | Body |
 |---|---|---|
 | GET | `/profile` | — |
-| PUT | `/profile` | `first_name, last_name, email, budget_alerts?, bill_reminders?` |
+| PUT | `/profile` | `first_name, last_name, email, current_password?, budget_alerts?, bill_reminders?` (`current_password` required when changing email; the old address gets a security email) |
 | PUT | `/profile/password` | `current_password, new_password, confirm_password` |
 | DELETE | `/profile` | `password` (customers only; permanent) |
+| PUT | `/profile/tour` | — (customers; marks the dashboard tutorial as done so it no longer auto-starts) |
 | GET | `/notifications` | — → latest 30 + `unread` count |
 | PUT | `/notifications/{id}/read` | — |
 | PUT | `/notifications/read-all` | — |
@@ -62,9 +63,9 @@ Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 |---|---|---|
 | GET | `/staff/overview` | request/ticket counts by status, customer count, recent activity |
 | GET | `/staff/category-requests` | `status, q, page` |
-| PUT | `/staff/category-requests/{id}` | `status (approved\|rejected)` — approving creates the customer's category; customer is notified; audited |
+| PUT | `/staff/category-requests/{id}` | `status (approved\|rejected)` — approving creates the customer's category; customer is notified in-app and by email; audited |
 | GET | `/staff/tickets` | `status (pending\|in_progress\|resolved\|open), q, page` |
-| PUT | `/staff/tickets/{id}` | `status, staff_reply?` — customer is notified; audited |
+| PUT | `/staff/tickets/{id}` | `status, staff_reply?` — customer is notified in-app and by email (with the reply); audited |
 | GET | `/staff/users` | `q, status, page` — customers' status only (no financial data) |
 
 ## Admin
@@ -80,7 +81,7 @@ Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 | POST | `/admin/categories` | `name, type` |
 | PUT | `/admin/categories/{id}` | `name, type` (type locked once used) |
 | DELETE | `/admin/categories/{id}` | transactions become Uncategorized |
-| GET | `/admin/audit-log` | `q, from, to, page` (read-only; no update/delete routes exist) |
+| GET | `/admin/audit-log` | `q, role (customer\|staff\|admin), category (e.g. auth, transaction, budget), from, to, page` (read-only; no update/delete routes exist). Covers every state-changing action by all three roles plus logins, failed logins, lockouts and logouts. Customer entries never include amounts or descriptions. |
 
 ## External API consumed
 
