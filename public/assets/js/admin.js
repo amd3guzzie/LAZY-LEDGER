@@ -41,6 +41,8 @@
       state.charts.roles = new Chart($('#roleChart'), { type: 'doughnut', data: roles, options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } });
     }
 
+    renderDemographics(o.demographics);
+
     const max = Math.max(1, ...o.top_categories.map((c) => c.uses));
     $('#topCats').innerHTML = o.top_categories.length
       ? o.top_categories.map((c) => html`<div class="budget-row"><div class="d-flex justify-content-between"><span class="name">${c.name}</span><span class="nums">${c.uses} uses</span></div>
@@ -49,6 +51,38 @@
     $('#recentActivity').innerHTML = o.recent_activity.length
       ? o.recent_activity.map((a) => html`<tr><td class="small text-muted-ll fw-normal text-nowrap">${fmtDateTime(a.created_at)}</td><td>${a.actor || actorFallback(a.action)}${a.actor_role ? raw(html` <span class="role-badge">${a.actor_role}</span>`) : ''}</td><td><code>${a.action}</code></td><td class="small fw-normal">${a.details}</td></tr>`).join('')
       : html`<tr><td class="empty-hint">No activity yet.</td></tr>`;
+  }
+
+  // Gender, age and currency of customers (collected at sign-up). Accounts made before those fields existed show as "Not provided".
+  function renderDemographics(d) {
+    const palette = ['#c14f27', '#fdd87d', '#7fb7c9', '#8a9a5b', '#b9b2a8'];
+    const parts = [];
+    if (d.average_age !== null) parts.push(`Average age ${d.average_age}`);
+    if (d.age_unknown) parts.push(`${d.age_unknown} without a birth date`);
+    parts.push(`${d.currency_count} currenc${d.currency_count === 1 ? 'y' : 'ies'} in use`);
+    $('#demoSummary').textContent = `From the details customers give at sign-up · ${parts.join(' · ')}`;
+
+    const configs = {
+      gender: {
+        type: 'doughnut',
+        data: { labels: d.genders.map((g) => g.label), datasets: [{ data: d.genders.map((g) => g.count), backgroundColor: palette }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+      },
+      age: {
+        type: 'bar',
+        data: { labels: d.age_groups.map((a) => a.label), datasets: [{ label: 'Customers', data: d.age_groups.map((a) => a.count), backgroundColor: '#7fb7c9' }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
+      },
+      currency: {
+        type: 'bar',
+        data: { labels: d.currencies.map((c) => c.code), datasets: [{ label: 'Customers', data: d.currencies.map((c) => c.count), backgroundColor: '#fdd87d' }] },
+        options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } },
+      },
+    };
+    Object.entries(configs).forEach(([key, cfg]) => {
+      if (state.charts[key]) { state.charts[key].data = cfg.data; state.charts[key].update(); }
+      else state.charts[key] = new Chart($(`#${key}Chart`), cfg);
+    });
   }
 
   // Entries with no actor: failed logins for unknown emails, or users deleted since.

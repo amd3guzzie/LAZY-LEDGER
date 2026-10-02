@@ -26,6 +26,10 @@ render_shell_start($user, [
     <div class="row g-3">
       <div class="col-lg-8"><div class="ll-card"><h2 class="ll-card-title mb-2">Signups &amp; transactions per month</h2><div class="chart-box"><canvas id="growthChart" role="img" aria-label="Signups and transactions per month"></canvas></div></div></div>
       <div class="col-lg-4"><div class="ll-card"><h2 class="ll-card-title mb-2">Users by role</h2><div class="chart-box"><canvas id="roleChart" role="img" aria-label="Users by role"></canvas></div></div></div>
+      <div class="col-12"><h2 class="ll-card-title mt-2 mb-0">Customer demographics</h2><p class="privacy-note mb-0" id="demoSummary">From the details customers give at sign-up.</p></div>
+      <div class="col-md-6 col-xl-4"><div class="ll-card"><h3 class="ll-card-title fs-6 mb-2">Gender</h3><div class="chart-box"><canvas id="genderChart" role="img" aria-label="Customers by gender"></canvas></div></div></div>
+      <div class="col-md-6 col-xl-4"><div class="ll-card"><h3 class="ll-card-title fs-6 mb-2">Age group</h3><div class="chart-box"><canvas id="ageChart" role="img" aria-label="Customers by age group"></canvas></div></div></div>
+      <div class="col-md-12 col-xl-4"><div class="ll-card"><h3 class="ll-card-title fs-6 mb-2">Currency</h3><div class="chart-box"><canvas id="currencyChart" role="img" aria-label="Customers by recording currency"></canvas></div></div></div>
       <div class="col-lg-5"><div class="ll-card"><h2 class="ll-card-title mb-2">Most-used categories</h2><div id="topCats"></div></div></div>
       <div class="col-lg-7"><div class="ll-card"><div class="d-flex justify-content-between"><h2 class="ll-card-title mb-2">Recent activity (all users)</h2><a class="see-all" href="#audit">See all</a></div>
         <div class="table-responsive"><table class="table table-ll table-sm"><tbody id="recentActivity"></tbody></table></div></div></div>
