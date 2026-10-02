@@ -193,18 +193,22 @@ render_head('Lazy Ledger');
         </div>
         <div class="mb-3">
           <label class="form-label" for="resetPassword">New Password<span class="req">*</span></label>
-          <input class="form-control" type="password" id="resetPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="72" aria-describedby="resetPwHelp">
-          <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#resetPassword" style="border: 2px solid #c77a5f; background-color: white;">
-              <i class="bi bi-eye"></i>
-          </button>
+          <div class="input-group">
+            <input class="form-control" type="password" id="resetPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="72" aria-describedby="resetPwHelp">
+            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#resetPassword" style="border: 2px solid #c77a5f; background-color: white;">
+                <i class="bi bi-eye"></i>
+            </button>
+          </div>
           <div class="form-text" id="resetPwHelp">At least 8 characters, with a letter and a number.</div>
         </div>
         <div class="mb-3">
           <label class="form-label" for="resetConfirm">Confirm New Password<span class="req">*</span></label>
-          <input class="form-control" type="password" id="resetConfirm" name="confirm_password" autocomplete="new-password" required maxlength="72">
-          <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#resetConfirm" style="border: 2px solid #c77a5f; background-color: white;">
-              <i class="bi bi-eye"></i>
-          </button>
+          <div class="input-group">
+            <input class="form-control" type="password" id="resetConfirm" name="confirm_password" autocomplete="new-password" required maxlength="72">
+            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#resetConfirm" style="border: 2px solid #c77a5f; background-color: white;">
+                <i class="bi bi-eye"></i>
+            </button>
+          </div>
         </div>
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
           <span class="small fw-bold text-terracotta">No email? <button type="button" class="btn-link-ll" id="resendCode">Send a new code</button></span>
@@ -265,18 +269,22 @@ render_head('Lazy Ledger');
           </div>
           <div class="col-md-6">
             <label class="form-label" for="regPassword">Password<span class="req">*</span></label>
-            <input class="form-control" type="password" id="regPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="128" aria-describedby="pwHelp">
+            <div class="input-group">
+              <input class="form-control" type="password" id="regPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="128" aria-describedby="pwHelp">
+              <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#regPassword" style="border: 2px solid #c77a5f; background-color: white;">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
             <div class="form-text" id="pwHelp">At least 8 characters, with a letter and a number.</div>
-            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#regPassword" style="border: 2px solid #c77a5f; background-color: white;">
-              <i class="bi bi-eye"></i>
-            </button>
           </div>
           <div class="col-md-6">
             <label class="form-label" for="regConfirm">Confirm Password<span class="req">*</span></label>
-            <input class="form-control" type="password" id="regConfirm" name="confirm_password" autocomplete="new-password" required>
-            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#regConfirm" style="border: 2px solid #c77a5f; background-color: white;">
-              <i class="bi bi-eye"></i>
-            </button>
+            <div class="input-group">
+              <input class="form-control" type="password" id="regConfirm" name="confirm_password" autocomplete="new-password" required>
+              <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#regConfirm" style="border: 2px solid #c77a5f; background-color: white;">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
           </div>
           <div class="col-12">
             <h3 class="form-label fs-6 mb-1" id="privacyTitle">Data Privacy Notice</h3>
