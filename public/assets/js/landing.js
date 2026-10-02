@@ -240,15 +240,25 @@ resetForm.addEventListener('submit', (e) => {
   
   // Helper to show errors on a single field instantly
   const showInlineError = (input, msg) => {
-    input.classList.toggle('is-invalid', !!msg);
-    let fb = input.parentElement.querySelector('.invalid-feedback');
-    if (!fb && msg) {
-      fb = document.createElement('div');
-      fb.className = 'invalid-feedback';
+  input.classList.toggle('is-invalid', !!msg);
+
+  const parent = input.parentElement;
+  let fb = parent.querySelector('.invalid-feedback');
+  
+  if (!fb && msg) {
+    fb = document.createElement('div');
+    fb.className = 'invalid-feedback';
+    
+    if (parent.classList.contains('input-group')) {
+      parent.appendChild(fb);
+      parent.classList.add('has-validation'); 
+    } else {
       input.insertAdjacentElement('afterend', fb);
     }
-    if (fb) fb.textContent = msg || '';
-  };
+  }
+  
+  if (fb) fb.textContent = msg || '';
+};
 
   // Validate individual fields on blur (Tab key or clicking away)
   const validateSignupField = (input) => {
