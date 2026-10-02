@@ -41,6 +41,8 @@ final class RequestController
             'INSERT INTO category_requests (user_id, requested_name, requested_type, reason) VALUES (?, ?, ?, ?)',
             [$user['id'], $name, $type, $reason]
         );
-        return ['id' => (int) db()->lastInsertId()];
+        $id = (int) db()->lastInsertId();
+        audit((int) $user['id'], 'category_request.create', 'category_request', $id, "$name ($type)");
+        return ['id' => $id];
     }
 }

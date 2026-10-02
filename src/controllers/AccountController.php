@@ -37,27 +37,31 @@ final class AccountController
             'INSERT INTO accounts (user_id, name, type, opening_balance, due_date) VALUES (?, ?, ?, ?, ?)',
             [$user['id'], $name, $type, $opening, $due]
         );
-        return ['data' => self::find((int) db()->lastInsertId(), (int) $user['id'])];
+        $id = (int) db()->lastInsertId();
+        audit((int) $user['id'], 'account.create', 'account', $id, "type: $type");
+        return ['data' => self::find($id, (int) $user['id'])];
     }
 
     public static function update(int $id): array
     {
         $user = require_role('customer');
-        self::find($id, (int) $user['id']);
+        $before = self::find($id, (int) $user['id']);
         [$name, $type, $opening, $due] = self::validated(read_json());
 
         q(
             'UPDATE accounts SET name = ?, type = ?, opening_balance = ?, due_date = ? WHERE id = ? AND user_id = ?',
             [$name, $type, $opening, $due, $id, $user['id']]
         );
+        audit((int) $user['id'], 'account.update', 'account', $id, $before['type'] === $type ? "type: $type" : "type: {$before['type']} → $type");
         return ['data' => self::find($id, (int) $user['id'])];
     }
 
     public static function destroy(int $id): array
     {
         $user = require_role('customer');
-        self::find($id, (int) $user['id']);
+        $acc = self::find($id, (int) $user['id']);
         q('DELETE FROM accounts WHERE id = ? AND user_id = ?', [$id, $user['id']]);
+        audit((int) $user['id'], 'account.delete', 'account', $id, "type: {$acc['type']}, {$acc['transaction_count']} transaction(s) removed");
         return ['ok' => true];
     }
 

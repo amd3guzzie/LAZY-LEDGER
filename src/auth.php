@@ -18,7 +18,8 @@ function current_user(): ?array
         return $cache = null;
     }
     $user = q_one(
-        'SELECT id, first_name, last_name, email, role, status, monthly_budget, budget_alerts, bill_reminders, last_login_at, created_at
+        'SELECT id, first_name, last_name, email, role, status, birth_date, gender, currency, monthly_budget,
+                budget_alerts, bill_reminders, tour_completed_at, last_login_at, created_at
          FROM users WHERE id = ?',
         [$id]
     );
@@ -37,6 +38,10 @@ function public_user(array $u): array
         'last_name' => $u['last_name'],
         'email' => $u['email'],
         'role' => $u['role'],
+        'birth_date' => $u['birth_date'],
+        'gender' => $u['gender'],
+        'currency' => $u['currency'],
+        'tour_completed' => $u['tour_completed_at'] !== null,
         'monthly_budget' => $u['monthly_budget'] !== null ? (float) $u['monthly_budget'] : null,
         'budget_alerts' => (bool) $u['budget_alerts'],
         'bill_reminders' => (bool) $u['bill_reminders'],
@@ -101,23 +106,3 @@ function page_guard(string $role): array
     return $user;
 }
 
-
-function audit_log(int $userId, string $action, string $details = ''): void
-{
-    // Capture the real IP from the proxy headers (required for Railway)
-    $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-    
-    // Grab only the first IP if multiple proxies are chained
-    if (str_contains($ip, ',')) {
-        $ip = explode(',', $ip)[0];
-    }
-    $ip = trim($ip);
-    
-    // Append the IP address to the end of the details string
-    $logDetails = $details === '' ? "IP: $ip" : "$details (IP: $ip)";
-    
-    q(
-        'INSERT INTO audit_logs (user_id, action, details) VALUES (?, ?, ?)',
-        [$userId, substr($action, 0, 100), $logDetails]
-    );
-}

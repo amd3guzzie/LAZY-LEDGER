@@ -56,6 +56,7 @@ final class TransactionController
             [$data['account_id'], $data['category_id'], $data['type'], $data['amount'], $data['description'], $data['transaction_date']]
         );
         $tx = self::find((int) db()->lastInsertId(), (int) $user['id']);
+        audit((int) $user['id'], 'transaction.create', 'transaction', $tx['id'], self::describe($tx));
         self::maybeAlertBudget($user, $tx);
         return ['data' => $tx];
     }
@@ -63,21 +64,24 @@ final class TransactionController
     public static function update(int $id): array
     {
         $user = require_role('customer');
-        self::find($id, (int) $user['id']);
+        $before = self::find($id, (int) $user['id']);
         $data = self::validated(read_json(), (int) $user['id']);
         q(
             'UPDATE transactions SET account_id = ?, category_id = ?, type = ?, amount = ?, description = ?, transaction_date = ?
              WHERE id = ?',
             [$data['account_id'], $data['category_id'], $data['type'], $data['amount'], $data['description'], $data['transaction_date'], $id]
         );
-        return ['data' => self::find($id, (int) $user['id'])];
+        $tx = self::find($id, (int) $user['id']);
+        audit((int) $user['id'], 'transaction.update', 'transaction', $id, self::describe($before) . ' → ' . self::describe($tx));
+        return ['data' => $tx];
     }
 
     public static function destroy(int $id): array
     {
         $user = require_role('customer');
-        self::find($id, (int) $user['id']);
+        $tx = self::find($id, (int) $user['id']);
         q('DELETE FROM transactions WHERE id = ?', [$id]);
+        audit((int) $user['id'], 'transaction.delete', 'transaction', $id, self::describe($tx));
         return ['ok' => true];
     }
 
@@ -87,6 +91,7 @@ final class TransactionController
         $user = require_role('customer');
         [$where, $params] = self::filters((int) $user['id']);
         $rows = q_all(self::SELECT . " WHERE $where ORDER BY t.transaction_date DESC, t.id DESC", $params);
+        audit((int) $user['id'], 'transaction.export', 'transaction', null, count($rows) . ' rows exported to CSV');
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="lazyledger-transactions-' . date('Y-m-d') . '.csv"');
@@ -213,6 +218,15 @@ final class TransactionController
         } elseif ($spent >= 0.9 * $limit && $before < 0.9 * $limit) {
             notify((int) $user['id'], "Heads up: you've used 90% of your {$budget['name']} budget.");
         }
+    }
+
+    /**
+     * Audit-log summary. Deliberately omits amount and description: admins can read the audit log,
+     * and they must not see individual customers' finances.
+     */
+    private static function describe(array $tx): string
+    {
+        return "{$tx['type']} on account #{$tx['account_id']}";
     }
 
     /** Prevent spreadsheet formula injection in exported cells. */

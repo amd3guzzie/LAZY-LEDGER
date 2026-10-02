@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/mailer.php';
+
 /**
  * Staff (and admins) process category requests and support tickets, and can look up
  * customer account status. Staff never see balances or transactions.
@@ -98,6 +100,23 @@ final class StaffController
             $pdo->rollBack();
             throw $e;
         }
+
+        // Email after commit: never hold the row lock during an HTTP call, never email a rolled-back change.
+        $customer = q_one('SELECT email, first_name FROM users WHERE id = ?', [$req['user_id']]);
+        if ($customer) {
+            $name = e($req['requested_name']);
+            $body = $status === 'approved'
+                ? "<p>Good news! Your request for the <b>$name</b> ({$req['requested_type']}) category was <b>approved</b>. "
+                    . 'It is now available when you add transactions and budgets.</p>'
+                : "<p>Your request for the <b>$name</b> ({$req['requested_type']}) category was <b>not approved</b>. "
+                    . 'You can use one of the existing categories, or open a support ticket if you have questions.</p>';
+            send_transactional_email(
+                $customer['email'],
+                $customer['first_name'],
+                "Your category request was $status",
+                email_layout('Category request ' . $status, '<p>Hi ' . e($customer['first_name']) . ',</p>' . $body, 'Open LazyLedger', '/app.php#budgets')
+            );
+        }
         return ['ok' => true, 'status' => $status];
     }
 
@@ -155,11 +174,31 @@ final class StaffController
              WHERE id = ?',
             [$status, $reply, $staff['id'], $status, $id]
         );
-        if ($status !== $ticket['status'] || ($reply !== '' && $reply !== $ticket['staff_reply'])) {
+        $newReply = $reply !== '' && $reply !== $ticket['staff_reply'];
+        if ($status !== $ticket['status'] || $newReply) {
             $label = str_replace('_', ' ', $status);
             notify((int) $ticket['user_id'], "Your support ticket \"{$ticket['subject']}\" was updated ($label).");
+
+            $customer = q_one('SELECT email, first_name FROM users WHERE id = ?', [$ticket['user_id']]);
+            if ($customer) {
+                $body = '<p>Hi ' . e($customer['first_name']) . ',</p>'
+                    . '<p>Your support ticket <b>' . e($ticket['subject']) . '</b> is now <b>' . e($label) . '</b>.</p>';
+                if ($newReply) {
+                    $body .= '<p style="margin-bottom:4px"><b>Our support team replied:</b></p>'
+                        . '<blockquote style="border-left:4px solid #c14f27;margin:0;padding:8px 12px;background:#fdf3ee">'
+                        . nl2br(e($reply)) . '</blockquote>';
+                }
+                $body .= '<p style="margin-top:16px;color:#666;font-size:13px">Your original message:<br>' . nl2br(e($ticket['message'])) . '</p>';
+                send_transactional_email(
+                    $customer['email'],
+                    $customer['first_name'],
+                    ($newReply ? 'New reply on' : 'Update on') . ' your ticket: ' . $ticket['subject'],
+                    email_layout('Support ticket ' . $label, $body, 'View your tickets', '/app.php#profile')
+                );
+            }
         }
-        audit((int) $staff['id'], 'ticket.update', 'support_ticket', $id, "status: $status");
+        audit((int) $staff['id'], 'ticket.update', 'support_ticket', $id,
+            "\"{$ticket['subject']}\" status: {$ticket['status']} → $status" . ($newReply ? '; replied' : ''));
         return ['ok' => true];
     }
 

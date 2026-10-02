@@ -38,6 +38,25 @@ $sql = preg_replace('/^\s*--.*$/m', '', $sql);
 foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
     $pdo->exec($statement);
 }
+// CREATE TABLE IF NOT EXISTS never alters an existing table, so columns added after the
+// first deploy are added here. Each runs once: it's skipped when the column already exists.
+$columns = [
+    ['users', 'birth_date', 'DATE NULL AFTER status'],
+    ['users', 'gender', "ENUM('male','female','non_binary','prefer_not_to_say') NULL AFTER birth_date"],
+    ['users', 'currency', "CHAR(3) NOT NULL DEFAULT 'PHP' AFTER gender"],
+    ['users', 'privacy_consent_at', 'DATETIME NULL AFTER bill_reminders'],
+    ['users', 'tour_completed_at', 'DATETIME NULL AFTER privacy_consent_at'],
+];
+foreach ($columns as [$table, $column, $definition]) {
+    $exists = q_val(
+        'SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+        [$table, $column]
+    );
+    if (!$exists) {
+        $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+        out("Added column $table.$column");
+    }
+}
 out('Schema is up to date.');
 
 // 2. Global categories (added only if missing)
