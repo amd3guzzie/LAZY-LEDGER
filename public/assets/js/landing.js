@@ -182,38 +182,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Digits only in the code box.
   resetForm.elements.code.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
-  resetForm.elements.confirm_password.addEventListener('paste', (e) => e.preventDefault());
+resetForm.elements.confirm_password.addEventListener('paste', (e) => e.preventDefault());
 
-  resetForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const data = {
-      email: resetEmail,
-      code: resetForm.elements.code.value.trim(),
-      password: resetForm.elements.password.value,
-      confirm_password: resetForm.elements.confirm_password.value,
-    };
-    const fields = {};
-    if (!/^\d{6}$/.test(data.code)) fields.code = 'Enter the 6-digit code from the email.';
-    const pwErr = data.password ? pwRuleError(data.password) : 'Password is required.';
-    if (pwErr) fields.password = pwErr;
-    if (data.password !== data.confirm_password) fields.confirm_password = 'Passwords do not match.';
-    if (Object.keys(fields).length) return LL.showErrors(resetForm, { fields });
+resetForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const data = {
+    email: resetEmail,
+    code: resetForm.elements.code.value.trim(),
+    password: resetForm.elements.password.value,
+    confirm_password: resetForm.elements.confirm_password.value,
+  };
+  const fields = {};
 
-    LL.submitting(resetForm, async () => {
-      const res = await LL.api('/auth/reset-password', { method: 'POST', body: data });
-      bootstrap.Modal.getInstance(forgotModalEl)?.hide();
-      forgotModalEl.addEventListener('hidden.bs.modal', () => {
-        LL.clearErrors(loginForm);
-        loginForm.elements.email.value = res.email || resetEmail;
-        loginForm.elements.password.value = '';
-        const ok = document.getElementById('loginSuccess');
-        ok.textContent = res.message;
-        ok.hidden = false;
-        bootstrap.Modal.getOrCreateInstance(loginModalEl).show();
-        loginModalEl.addEventListener('shown.bs.modal', () => loginForm.elements.password.focus(), { once: true });
-      }, { once: true });
-    });
+  // Code validation
+  if (!/^\d{6}$/.test(data.code)) {
+    fields.code = 'Enter the 6-digit code from the email.';
+  }
+
+  // Password validation
+  if (!data.password) {
+    fields.password = 'Password is required.';
+  } else if (data.password.length < 8 || !/[A-Za-z]/.test(data.password) || !/\d/.test(data.password)) {
+    fields.password = 'At least 8 characters, with a letter and a number.';
+  }
+
+  // Confirm password validation
+  if (!data.confirm_password) {
+    fields.confirm_password = 'Please confirm your password.';
+  } else if (data.confirm_password !== data.password) {
+    fields.confirm_password = 'Passwords do not match.';
+  }
+
+  // Check for any errors
+  if (Object.keys(fields).length) return LL.showErrors(resetForm, { fields });
+
+  // Submit if valid
+  LL.submitting(resetForm, async () => {
+    const res = await LL.api('/auth/reset-password', { method: 'POST', body: data });
+    bootstrap.Modal.getInstance(forgotModalEl)?.hide();
+    
+    forgotModalEl.addEventListener('hidden.bs.modal', () => {
+      LL.clearErrors(loginForm);
+      loginForm.elements.email.value = res.email || resetEmail;
+      loginForm.elements.password.value = '';
+      
+      const ok = document.getElementById('loginSuccess');
+      ok.textContent = res.message;
+      ok.hidden = false;
+      
+      bootstrap.Modal.getOrCreateInstance(loginModalEl).show();
+      loginModalEl.addEventListener('shown.bs.modal', () => loginForm.elements.password.focus(), { once: true });
+    }, { once: true });
   });
+});
 
   // --- SIGNUP FORM (Inline Validation & Password Strength) ---
   
