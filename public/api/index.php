@@ -47,6 +47,8 @@ $r = new Router();
 // Auth
 $r->post('/auth/register', [AuthController::class, 'register']);
 $r->post('/auth/login', [AuthController::class, 'login']);
+$r->post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
+$r->post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 $r->post('/auth/logout', [AuthController::class, 'logout']);
 $r->get('/auth/me', [AuthController::class, 'me']);
 

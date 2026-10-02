@@ -12,6 +12,11 @@ final class AuthController
     public const GENDERS = ['male', 'female', 'non_binary', 'prefer_not_to_say'];
     private const MIN_AGE = 13;
 
+    private const RESET_CODE_MINUTES = 10;
+    private const RESET_MAX_ATTEMPTS = 5;
+    private const RESET_COOLDOWN_SECONDS = 60;
+    private const RESET_MAX_PER_HOUR = 5;
+
     public static function register(): array
     {
         $body = read_json();
@@ -19,7 +24,7 @@ final class AuthController
         
         // Enforce a minimum of 2 characters for names to prevent single-letter inputs
         $first = $v->str('first_name', 'First name', 60, true, 2);
-        $last = $v->str('last_name', 'Last name', 60, false, 2);
+        $last = $v->str('last_name', 'Last name', 60, true, 2);
         
         $email = $v->email('email');
         $birthDate = $v->date('birth_date', 'Date of birth');
@@ -161,6 +166,131 @@ final class AuthController
         audit((int) $user['id'], 'auth.login', 'user', (int) $user['id'], $email);
 
         return ['user' => public_user($user), 'redirect' => home_for_role($user['role']), 'csrf' => csrf_token()];
+    }
+
+    /**
+     * Step 1 of "Forgot password": email a 6-digit one-time code. The response is the same whether
+     * or not the email has an account, so this endpoint can't be used to discover who is registered.
+     */
+    public static function forgotPassword(): array
+    {
+        $v = new Validator(read_json());
+        $email = $v->email('email');
+        $v->done();
+
+        $response = [
+            'ok' => true,
+            'message' => 'If an account exists for ' . $email . ', we sent a 6-digit code to it. The code expires in '
+                . self::RESET_CODE_MINUTES . ' minutes.',
+        ];
+
+        $user = q_one('SELECT id, first_name, email, status FROM users WHERE email = ?', [$email]);
+        if (!$user || $user['status'] !== 'active') {
+            $actorId = $user ? (int) $user['id'] : null;
+            audit($actorId, 'auth.reset_requested', 'user', $actorId, $email . ($user ? ' (suspended, no code sent)' : ' (no such account)'));
+            return $response;
+        }
+        $userId = (int) $user['id'];
+
+        // Throttle: one code per minute and a few per hour, so nobody can flood the inbox.
+        $recent = q_one(
+            'SELECT COALESCE(SUM(created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)), 0) AS last_minute, COUNT(*) AS last_hour
+             FROM password_resets WHERE user_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)',
+            [self::RESET_COOLDOWN_SECONDS, $userId]
+        );
+        if ((int) $recent['last_minute'] > 0) {
+            fail(429, 'A code was just sent. Please wait a minute before requesting another one.');
+        }
+        if ((int) $recent['last_hour'] >= self::RESET_MAX_PER_HOUR) {
+            fail(429, 'Too many reset requests. Please try again in an hour.');
+        }
+
+        // Only the newest code works.
+        q('UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL', [$userId]);
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        q(
+            'INSERT INTO password_resets (user_id, code_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))',
+            [$userId, password_hash($code, PASSWORD_DEFAULT), self::RESET_CODE_MINUTES]
+        );
+        audit($userId, 'auth.reset_requested', 'user', $userId, $email);
+
+        send_transactional_email(
+            $user['email'],
+            $user['first_name'],
+            'Your LazyLedger password reset code',
+            email_layout(
+                'Reset your password',
+                '<p>Hi ' . e($user['first_name']) . ', use this code to reset your LazyLedger password:</p>'
+                . '<p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#c14f27;margin:16px 0">' . $code . '</p>'
+                . '<p>The code expires in ' . self::RESET_CODE_MINUTES . ' minutes and can only be used once.</p>'
+                . '<p>If you did not ask to reset your password, you can ignore this email; your password stays the same.</p>'
+            )
+        );
+        return $response;
+    }
+
+    /** Step 2 of "Forgot password": check the emailed code and set the new password. */
+    public static function resetPassword(): array
+    {
+        $body = read_json();
+        $v = new Validator($body);
+        $email = $v->email('email');
+        $code = preg_replace('/\s+/', '', (string) ($body['code'] ?? ''));
+        $password = (string) ($body['password'] ?? '');
+        if (!preg_match('/^\d{6}$/', $code)) {
+            $v->error('code', 'Enter the 6-digit code from the email.');
+        }
+        self::checkPassword($v, $password, 'password');
+        if ($password !== (string) ($body['confirm_password'] ?? '')) {
+            $v->error('confirm_password', 'Passwords do not match.');
+        }
+        $v->done();
+
+        $invalid = 'That code is invalid or has expired. Please request a new one.';
+        $user = q_one('SELECT id, first_name, email, status FROM users WHERE email = ?', [$email]);
+        $reset = $user ? q_one(
+            'SELECT id, code_hash, attempts FROM password_resets
+             WHERE user_id = ? AND used_at IS NULL AND expires_at > NOW() ORDER BY id DESC LIMIT 1',
+            [$user['id']]
+        ) : null;
+        if (!$user || $user['status'] !== 'active' || !$reset) {
+            fail(422, $invalid, ['code' => $invalid]);
+        }
+        $userId = (int) $user['id'];
+
+        if (!password_verify($code, $reset['code_hash'])) {
+            $left = self::RESET_MAX_ATTEMPTS - ((int) $reset['attempts'] + 1);
+            if ($left <= 0) {
+                q('UPDATE password_resets SET attempts = attempts + 1, used_at = NOW() WHERE id = ?', [$reset['id']]);
+                audit($userId, 'auth.reset_failed', 'user', $userId, "$email: too many wrong codes, code cancelled");
+                $msg = 'Too many incorrect attempts. Please request a new code.';
+                fail(422, $msg, ['code' => $msg]);
+            }
+            q('UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?', [$reset['id']]);
+            audit($userId, 'auth.reset_failed', 'user', $userId, "$email: wrong code");
+            $msg = "Incorrect code. $left attempt" . ($left === 1 ? '' : 's') . ' left.';
+            fail(422, $msg, ['code' => $msg]);
+        }
+
+        q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $userId]);
+        q('UPDATE password_resets SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL', [$userId]);
+        audit($userId, 'auth.password_reset', 'user', $userId, $email);
+        notify($userId, 'Your password was reset using an emailed code.');
+
+        send_transactional_email(
+            $user['email'],
+            $user['first_name'],
+            'Your LazyLedger password was changed',
+            email_layout(
+                'Password changed',
+                '<p>Hi ' . e($user['first_name']) . ', the password for your LazyLedger account was just reset.</p>'
+                . '<p>If this was not you, reset your password again right away and open a support ticket.</p>',
+                'Log in to LazyLedger',
+                '/?login=1'
+            )
+        );
+
+        return ['ok' => true, 'email' => $email, 'message' => 'Password updated! Please log in with your new password.'];
     }
 
     public static function logout(): array

@@ -50,10 +50,54 @@ final class AdminController
                 'SELECT c.name, COUNT(t.id) AS uses FROM categories c JOIN transactions t ON t.category_id = c.id
                  GROUP BY c.id, c.name ORDER BY uses DESC LIMIT 5'
             ),
+            'demographics' => self::demographics(),
             'recent_activity' => q_all(
                 'SELECT l.action, l.target_type, l.details, l.created_at, CONCAT(u.first_name, \' \', u.last_name) AS actor, u.role AS actor_role
                  FROM audit_log l LEFT JOIN users u ON u.id = l.actor_id ORDER BY l.created_at DESC, l.id DESC LIMIT 8'
             ),
+        ];
+    }
+
+    /** Customer gender, age-group and currency breakdowns, from the details collected at sign-up. */
+    private static function demographics(): array
+    {
+        $gender = array_column(q_all(
+            "SELECT COALESCE(gender, 'unknown') AS g, COUNT(*) AS n FROM users WHERE role = 'customer' GROUP BY g"
+        ), 'n', 'g');
+        $genders = [];
+        foreach (['female' => 'Female', 'male' => 'Male', 'non_binary' => 'Non-binary', 'prefer_not_to_say' => 'Prefer not to say', 'unknown' => 'Not provided'] as $key => $label) {
+            if (isset($gender[$key])) {
+                $genders[] = ['label' => $label, 'count' => (int) $gender[$key]];
+            }
+        }
+
+        $age = array_column(q_all(
+            "SELECT CASE
+                WHEN birth_date IS NULL THEN 'unknown'
+                WHEN TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) < 18 THEN '13-17'
+                WHEN TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) < 25 THEN '18-24'
+                WHEN TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) < 35 THEN '25-34'
+                WHEN TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) < 45 THEN '35-44'
+                WHEN TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) < 55 THEN '45-54'
+                ELSE '55+' END AS bucket, COUNT(*) AS n
+             FROM users WHERE role = 'customer' GROUP BY bucket"
+        ), 'n', 'bucket');
+        $ages = [];
+        foreach (['13-17', '18-24', '25-34', '35-44', '45-54', '55+'] as $bucket) {
+            $ages[] = ['label' => $bucket, 'count' => (int) ($age[$bucket] ?? 0)];
+        }
+        $avgAge = q_val("SELECT AVG(TIMESTAMPDIFF(YEAR, birth_date, CURDATE())) FROM users WHERE role = 'customer' AND birth_date IS NOT NULL");
+
+        return [
+            'genders' => $genders,
+            'age_groups' => $ages,
+            'age_unknown' => (int) ($age['unknown'] ?? 0),
+            'average_age' => $avgAge === null ? null : round((float) $avgAge, 1),
+            'currencies' => array_map(
+                fn(array $r) => ['code' => $r['currency'], 'count' => (int) $r['n']],
+                q_all("SELECT currency, COUNT(*) AS n FROM users WHERE role = 'customer' GROUP BY currency ORDER BY n DESC, currency LIMIT 8")
+            ),
+            'currency_count' => (int) q_val("SELECT COUNT(DISTINCT currency) FROM users WHERE role = 'customer'"),
         ];
     }
 

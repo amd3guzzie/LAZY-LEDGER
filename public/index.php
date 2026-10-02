@@ -152,12 +152,57 @@ render_head('Lazy Ledger');
           </div>
         </div>
         <div class="text-end mb-3">
-          <button type="button" class="btn-link-ll small" style="color:#f59366" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-content="Please email support@lazyledger.app from your registered address and our staff will reset your password.">Forgot Password?</button>
+          <button type="button" class="btn-link-ll small" style="color:#f59366" id="forgotLink">Forgot Password?</button>
         </div>
         
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
           <span class="fw-bold text-terracotta small">New here? <button type="button" class="btn-link-ll" data-switch="#signupModal">Create Account</button></span>
           <button class="btn btn-ll btn-lg" type="submit" id="loginSubmitBtn">Login</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Forgot password: email a one-time code, then enter it with the new password -->
+<div class="modal fade" id="forgotModal" tabindex="-1" aria-labelledby="forgotTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-3 p-md-4">
+      <div class="modal-header pb-0">
+        <h2 class="fs-4 font-display text-terracotta mb-0" id="forgotTitle">Reset your password</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form class="modal-body" id="forgotForm" novalidate>
+        <div class="alert alert-danger py-2 form-error" role="alert" hidden></div>
+        <p class="small mb-3">Enter the email you signed up with and we'll send you a 6-digit code.</p>
+        <div class="mb-3">
+          <label class="form-label" for="forgotEmail">Email Address<span class="req">*</span></label>
+          <input class="form-control" type="email" id="forgotEmail" name="email" autocomplete="email" required maxlength="190">
+        </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+          <button type="button" class="btn-link-ll small" data-switch="#loginModal">Back to login</button>
+          <button class="btn btn-ll btn-lg" type="submit">Send code</button>
+        </div>
+      </form>
+      <form class="modal-body" id="resetForm" novalidate hidden>
+        <div class="alert alert-success py-2 small fw-bold" id="resetSent" role="status"></div>
+        <div class="alert alert-danger py-2 form-error" role="alert" hidden></div>
+        <div class="mb-3">
+          <label class="form-label" for="resetCode">6-digit code<span class="req">*</span></label>
+          <input class="form-control otp-input" id="resetCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="\d{6}" maxlength="6" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="resetPassword">New Password<span class="req">*</span></label>
+          <input class="form-control" type="password" id="resetPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="72" aria-describedby="resetPwHelp">
+          <div class="form-text" id="resetPwHelp">At least 8 characters, with a letter and a number.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="resetConfirm">Confirm New Password<span class="req">*</span></label>
+          <input class="form-control" type="password" id="resetConfirm" name="confirm_password" autocomplete="new-password" required maxlength="72">
+        </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+          <span class="small fw-bold text-terracotta">No email? <button type="button" class="btn-link-ll" id="resendCode">Send a new code</button></span>
+          <button class="btn btn-ll btn-lg" type="submit">Reset password</button>
         </div>
       </form>
     </div>
@@ -181,8 +226,8 @@ render_head('Lazy Ledger');
             <input class="form-control" id="regFirst" name="first_name" autocomplete="given-name" required maxlength="60">
           </div>
           <div class="col-md-6">
-            <label class="form-label" for="regLast">Last Name</label>
-            <input class="form-control" id="regLast" name="last_name" autocomplete="family-name" maxlength="60">
+            <label class="form-label" for="regLast">Last Name<span class="req">*</span></label>
+            <input class="form-control" id="regLast" name="last_name" autocomplete="family-name" required maxlength="60">
           </div>
           <div class="col-12">
             <label class="form-label" for="regEmail">Email Address<span class="req">*</span></label>
@@ -190,7 +235,8 @@ render_head('Lazy Ledger');
           </div>
           <div class="col-md-4">
             <label class="form-label" for="regBirth">Date of Birth<span class="req">*</span></label>
-            <input class="form-control" type="date" id="regBirth" name="birth_date" autocomplete="bday" required min="1900-01-01" max="<?= e($maxBirthDate) ?>">
+            <input class="form-control" type="date" id="regBirth" name="birth_date" autocomplete="bday" required min="1900-01-01" max="<?= e($maxBirthDate) ?>" aria-describedby="birthHelp">
+            <div class="form-text" id="birthHelp">You must be at least 13 years old.</div>
           </div>
           <div class="col-md-4">
             <label class="form-label" for="regGender">Gender<span class="req">*</span></label>
@@ -257,6 +303,6 @@ render_head('Lazy Ledger');
 <script src="https://www.google.com/recaptcha/api.js?render=6LeC6dYtAAAAAECIlAtZGIffeHlx8gDNwLwYMlO_"></script>
 
 <script src="/assets/js/api.js"></script>
-<script src="/assets/js/landing.js?v=nopaste"></script>
+<script src="/assets/js/landing.js?v=reset-otp"></script>
 </body>
 </html> 
