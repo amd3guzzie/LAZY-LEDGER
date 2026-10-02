@@ -228,3 +228,31 @@ body {
   .step-num { width: 48px; height: 48px; font-size: 1.2rem; }
   .content-panel { padding: 1rem; }
 }
+
+/* ---------- Sign-up: Data Privacy notice ---------- */
+.privacy-notice { max-height: 11rem; overflow-y: auto; background: #fff8e5; border: 2px solid var(--ll-yellow-dark); border-radius: 8px; padding: .75rem .9rem; font-size: .88rem; line-height: 1.4; }
+.privacy-notice p { margin-bottom: .5rem; }
+.privacy-notice:focus-visible { outline: 3px solid var(--ll-terracotta); outline-offset: 2px; }
+
+/* ---------- Home: budget hero (the focal point) ---------- */
+.currency-select { width: auto; min-width: 8rem; max-width: 15rem; font-weight: 700; border: 2px solid var(--ll-salmon); color: var(--ll-terracotta); }
+.budget-hero { background: var(--ll-white); border: 3px solid var(--ll-yellow-dark); box-shadow: 0 6px 18px rgba(193, 79, 39, .12); }
+.budget-hero .stat-label { font-size: 1rem; }
+.hero-amount { color: var(--ll-terracotta); font-family: var(--ll-display); font-size: clamp(2.2rem, 7vw, 3.8rem); line-height: 1.05; margin-top: .5rem; overflow-wrap: anywhere; }
+.hero-sub { color: var(--ll-muted); font-weight: 800; font-size: 1.1rem; text-transform: uppercase; letter-spacing: .03em; }
+.hero-meter { height: 22px; background: var(--ll-yellow); border-radius: 12px; overflow: hidden; margin-top: 1rem; }
+.hero-meter > div { height: 100%; width: 0; background: var(--ll-green-bar); border-radius: 12px; transition: width .5s; }
+.hero-meter.warn > div { background: var(--ll-amber); }
+.hero-meter.over > div { background: var(--ll-red); }
+.pace-note { background: var(--ll-sky); border-radius: 8px; padding: .55rem .75rem; font-weight: 700; font-size: .95rem; }
+
+/* ---------- Dashboard tour ---------- */
+.tour-backdrop { position: fixed; inset: 0; z-index: 2000; background: transparent; }
+.tour-backdrop.dim { background: rgba(0, 0, 0, .55); }
+.tour-spotlight { position: fixed; z-index: 2001; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .55); outline: 3px solid var(--ll-yellow); pointer-events: none; transition: all .25s ease; }
+.tour-card { position: fixed; z-index: 2002; width: min(22rem, calc(100vw - 24px)); background: var(--ll-white); border-radius: var(--ll-radius); padding: 1rem 1.1rem; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); border-top: 5px solid var(--ll-terracotta); }
+.tour-title { font-size: 1.2rem; font-weight: 800; color: var(--ll-terracotta); margin: 0; }
+.tour-text { font-weight: 600; margin: .25rem 0 .9rem; }
+.tour-count { font-size: .85rem; font-weight: 800; color: var(--ll-muted); }
+@media (prefers-reduced-motion: reduce) { .tour-spotlight, .hero-meter > div { transition: none; } }
+body.tour-open { padding-bottom: 60vh; }

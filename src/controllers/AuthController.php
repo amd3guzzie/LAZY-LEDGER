@@ -2,11 +2,15 @@
 
 require_once dirname(__DIR__) . '/mailer.php';
 require_once dirname(__DIR__) . '/audit.php';
+require_once dirname(__DIR__) . '/currencies.php';
 
 final class AuthController
 {
     private const MAX_ATTEMPTS = 5;
     private const LOCK_SECONDS = 60;
+
+    public const GENDERS = ['male', 'female', 'non_binary', 'prefer_not_to_say'];
+    private const MIN_AGE = 13;
 
     public static function register(): array
     {
@@ -18,11 +22,27 @@ final class AuthController
         $last = $v->str('last_name', 'Last name', 60, false, 2);
         
         $email = $v->email('email');
+        $birthDate = $v->date('birth_date', 'Date of birth');
+        $gender = $v->enum('gender', 'Gender', self::GENDERS);
+        $currency = $v->enum('currency', 'Currency', array_keys(CURRENCIES));
         $password = (string) ($body['password'] ?? '');
         $confirm = (string) ($body['confirm_password'] ?? '');
         self::checkPassword($v, $password, 'password');
         if ($password !== $confirm) {
             $v->error('confirm_password', 'Passwords do not match.');
+        }
+        if ($birthDate !== null) {
+            $age = (new DateTimeImmutable($birthDate))->diff(new DateTimeImmutable('today'));
+            if ($age->invert === 1) {
+                $v->error('birth_date', 'Date of birth cannot be in the future.');
+            } elseif ($age->y < self::MIN_AGE) {
+                $v->error('birth_date', 'You must be at least ' . self::MIN_AGE . ' years old to sign up.');
+            } elseif ($age->y > 120) {
+                $v->error('birth_date', 'Please enter a valid date of birth.');
+            }
+        }
+        if (($body['privacy_consent'] ?? false) !== true) {
+            $v->error('privacy_consent', 'Please confirm your details and agree to the Data Privacy Notice.');
         }
         $v->done();
 
@@ -31,29 +51,32 @@ final class AuthController
         }
 
         q(
-            'INSERT INTO users (first_name, last_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-            [$first, $last, $email, password_hash($password, PASSWORD_DEFAULT), 'customer']
+            'INSERT INTO users (first_name, last_name, email, password_hash, role, birth_date, gender, currency, privacy_consent_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+            [$first, $last, $email, password_hash($password, PASSWORD_DEFAULT), 'customer', $birthDate, $gender, $currency]
         );
         $user = q_one('SELECT * FROM users WHERE id = ?', [(int) db()->lastInsertId()]);
 
-        audit((int)$user['id'], 'REGISTER', 'user', (int)$user['id'], 'Registered a new account.');
+        audit((int) $user['id'], 'auth.register', 'user', (int) $user['id'], "$email · currency $currency · accepted privacy notice");
         
         notify((int) $user['id'], 'Welcome to LazyLedger! Start by adding an account and setting a budget.');
         
-        // Send the welcome email via Brevo
         send_transactional_email(
             $user['email'], 
             $user['first_name'], 
             'Welcome to LazyLedger!', 
-            '<h1>Welcome!</h1><p>Start by adding an account and setting your first budget.</p>'
+            email_layout(
+                'Welcome, ' . $user['first_name'] . '!',
+                '<p>Your LazyLedger account is ready. Log in with <b>' . e($email) . '</b> to set your first budget.</p>'
+                . '<p>Your amounts will be tracked in <b>' . e($currency) . '</b>.</p>'
+                . '<p>If you did not create this account, please ignore this email or contact support.</p>',
+                'Log in to LazyLedger',
+                '/?login=1'
+            )
         );
 
-        login_session($user);
-        q('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$user['id']]);
-
-        audit((int)$user['id'], 'LOGIN', 'user', (int)$user['id'], 'User authenticated successfully.');
-
-        return ['user' => public_user($user), 'redirect' => home_for_role($user['role']), 'csrf' => csrf_token()];
+        // No session is started: the new customer must log in (which also passes the CAPTCHA).
+        return ['ok' => true, 'email' => $email, 'message' => 'Account created! Please log in to continue.'];
     }
 
     public static function login(): array
@@ -94,12 +117,14 @@ final class AuthController
         ]);
         
         $verifyResult = file_get_contents($verifyUrl, false, $context);
-        $captchaData = json_decode($verifyResult);
+        // file_get_contents() returns false when Google is unreachable; treat that as a failed check.
+        $captchaData = is_string($verifyResult) ? json_decode($verifyResult) : null;
         
-        error_log("Captcha Score: " . $captchaData->score);
+        error_log('Captcha Score: ' . ($captchaData->score ?? 'n/a'));
 
         // v3 requires checking both success and the bot probability score (>= 0.5 is standard)
         if (!$captchaData || !$captchaData->success || !isset($captchaData->score) || $captchaData->score < 0.5) {
+            audit(null, 'auth.captcha_failed', 'user', null, $email);
             fail(401, 'Suspicious bot activity detected. Please try again later.');
         }
 
@@ -108,16 +133,20 @@ final class AuthController
         
         if (!password_verify($password, $hash) || !$user) {
             $_SESSION['login_failures'] = ($_SESSION['login_failures'] ?? 0) + 1;
+            $actorId = $user ? (int) $user['id'] : null;
+            audit($actorId, 'auth.login_failed', 'user', $actorId, $email . ($user ? '' : ' (no such account)'));
             
             if ($_SESSION['login_failures'] >= self::MAX_ATTEMPTS) {
                 $_SESSION['login_failures'] = 0;
                 $_SESSION['login_locked_until'] = time() + self::LOCK_SECONDS;
+                audit($actorId, 'auth.lockout', 'user', $actorId, "$email: too many failed attempts");
                 fail(429, 'Too many failed attempts. Please contact the admin of the page.');
             }
             fail(401, 'Invalid email or password.');
         }
         
         if ($user['status'] !== 'active') {
+            audit((int) $user['id'], 'auth.login_blocked', 'user', (int) $user['id'], "$email: account suspended");
             fail(403, 'This account has been suspended. Please contact support.');
         }
         
@@ -128,13 +157,18 @@ final class AuthController
         login_session($user);
         q('UPDATE users SET last_login_at = NOW() WHERE id = ?', [$user['id']]);
 
-        audit((int)$user['id'], 'LOGIN', 'user', (int)$user['id'], 'User authenticated successfully.');
+        $_SESSION['login_failures'] = 0;
+        audit((int) $user['id'], 'auth.login', 'user', (int) $user['id'], $email);
 
         return ['user' => public_user($user), 'redirect' => home_for_role($user['role']), 'csrf' => csrf_token()];
     }
 
     public static function logout(): array
     {
+        $user = current_user();
+        if ($user) {
+            audit((int) $user['id'], 'auth.logout', 'user', (int) $user['id'], $user['email']);
+        }
         logout_session();
         return ['redirect' => '/'];
     }
@@ -154,61 +188,5 @@ final class AuthController
         } elseif (!preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password)) {
             $v->error($field, 'Password must contain at least one letter and one number.');
         }
-    }
-
-    public static function updateProfile(): array
-    {
-        $user = require_role();
-        $body = read_json();
-        $v = new Validator($body);
-
-        $currentDbUser = q_one('SELECT * FROM users WHERE id = ?', [$user['id']]);
-
-        $first = $v->str('first_name', 'First name', 60, true, 2);
-        $last = $v->str('last_name', 'Last name', 60, false, 2);
-        
-        $newEmail = $v->email('email');
-        $currentPassword = (string) ($body['current_password'] ?? '');
-
-        // Preserve toggle preferences if they are passed, otherwise keep current
-        $budgetAlerts = isset($body['budget_alerts']) ? (int)(bool)$body['budget_alerts'] : $currentDbUser['budget_alerts'];
-        $billReminders = isset($body['bill_reminders']) ? (int)(bool)$body['bill_reminders'] : $currentDbUser['bill_reminders'];
-
-        // Password verification check triggers ONLY if the email is changed
-        if ($newEmail !== $currentDbUser['email']) {
-            if ($currentPassword === '') {
-                $v->error('current_password', 'You must enter your current password to change your email address.');
-            } elseif (!password_verify($currentPassword, $currentDbUser['password_hash'])) {
-                $v->error('current_password', 'Incorrect password. Email update denied.');
-            }
-
-            if (q_val('SELECT 1 FROM users WHERE email = ? AND id != ?', [$newEmail, $user['id']])) {
-                $v->error('email', 'An account with that email already exists.');
-            }
-        }
-
-        $v->done();
-
-        q(
-            'UPDATE users SET first_name = ?, last_name = ?, email = ?, budget_alerts = ?, bill_reminders = ? WHERE id = ?',
-            [$first, $last, $newEmail, $budgetAlerts, $billReminders, $user['id']]
-        );
-
-        audit((int)$user['id'], 'PROFILE_UPDATE', 'user', (int)$user['id'], 'Updated profile information.');
-
-        // Alert the OLD email about the change
-        if ($newEmail !== $currentDbUser['email']) {
-            send_transactional_email(
-                $currentDbUser['email'], 
-                $currentDbUser['first_name'], 
-                'Security Alert: Email Changed', 
-                '<h1>Security Alert</h1><p>Your LazyLedger account email was just changed to <b>' . e($newEmail) . '</b>. If you did not authorize this, please contact support immediately.</p>'
-            );
-        }
-
-        $updatedUser = q_one('SELECT * FROM users WHERE id = ?', [$user['id']]);
-        
-        // Return 'data' array so your customer.js state.me = res.data updates properly
-        return ['data' => public_user($updatedUser), 'message' => 'Profile updated successfully.'];
     }
 }

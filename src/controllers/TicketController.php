@@ -24,6 +24,8 @@ final class TicketController
         $v->done();
 
         q('INSERT INTO support_tickets (user_id, subject, message) VALUES (?, ?, ?)', [$user['id'], $subject, $message]);
-        return ['id' => (int) db()->lastInsertId()];
+        $id = (int) db()->lastInsertId();
+        audit((int) $user['id'], 'ticket.create', 'support_ticket', $id, $subject);
+        return ['id' => $id];
     }
 }

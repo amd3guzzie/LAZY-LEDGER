@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 require_once dirname(__DIR__) . '/src/auth.php';
 require_once dirname(__DIR__) . '/src/views/layout.php';
+require_once dirname(__DIR__) . '/src/currencies.php';
 
 send_security_headers();
 $user = current_user();
@@ -12,6 +13,8 @@ $team = [
     ['Magdaluyo, Sydney Allison', 'Backend Developer'],
     ['Robles, Nicole Joy', 'QA / UI / Documentation'],
 ];
+// Sign-up requires age 13+ (also enforced by the API).
+$maxBirthDate = (new DateTimeImmutable('today'))->modify('-13 years')->format('Y-m-d');
 render_head('Lazy Ledger');
 ?>
 <body class="landing">
@@ -68,8 +71,8 @@ render_head('Lazy Ledger');
       <div class="col-md-4">
         <div class="feature-card">
           <img src="/assets/img/feature-section-2.png" alt="">
-          <h3>Live PHP/USD conversion</h3>
-          <p>Convert balances using live exchange rates in one click.</p>
+          <h3>Live currency conversion</h3>
+          <p>Track in your own currency and view it in 30 others with live exchange rates.</p>
         </div>
       </div>
       <div class="col-md-4">
@@ -132,6 +135,7 @@ render_head('Lazy Ledger');
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form class="modal-body" id="loginForm" novalidate>
+        <div class="alert alert-success py-2 fw-bold" id="loginSuccess" role="status" hidden></div>
         <div class="alert alert-danger py-2 form-error" role="alert" hidden></div>
         
         <div class="mb-3">
@@ -184,6 +188,29 @@ render_head('Lazy Ledger');
             <label class="form-label" for="regEmail">Email Address<span class="req">*</span></label>
             <input class="form-control" type="email" id="regEmail" name="email" autocomplete="email" required maxlength="190">
           </div>
+          <div class="col-md-4">
+            <label class="form-label" for="regBirth">Date of Birth<span class="req">*</span></label>
+            <input class="form-control" type="date" id="regBirth" name="birth_date" autocomplete="bday" required min="1900-01-01" max="<?= e($maxBirthDate) ?>">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="regGender">Gender<span class="req">*</span></label>
+            <select class="form-select" id="regGender" name="gender" required>
+              <option value="" selected disabled>Select…</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="non_binary">Non-binary</option>
+              <option value="prefer_not_to_say">Prefer not to say</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="regCurrency">Currency<span class="req">*</span></label>
+            <select class="form-select" id="regCurrency" name="currency" required aria-describedby="currencyHelp">
+              <?php foreach (CURRENCIES as $code => $label): ?>
+                <option value="<?= e($code) ?>"<?= $code === 'PHP' ? ' selected' : '' ?>><?= e("$code — $label") ?></option>
+              <?php endforeach; ?>
+            </select>
+            <div class="form-text" id="currencyHelp">Your amounts are recorded in this currency.</div>
+          </div>
           <div class="col-md-6">
             <label class="form-label" for="regPassword">Password<span class="req">*</span></label>
             <input class="form-control" type="password" id="regPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="128" aria-describedby="pwHelp">
@@ -192,6 +219,23 @@ render_head('Lazy Ledger');
           <div class="col-md-6">
             <label class="form-label" for="regConfirm">Confirm Password<span class="req">*</span></label>
             <input class="form-control" type="password" id="regConfirm" name="confirm_password" autocomplete="new-password" required>
+          </div>
+          <div class="col-12">
+            <h3 class="form-label fs-6 mb-1" id="privacyTitle">Data Privacy Notice</h3>
+            <div class="privacy-notice" tabindex="0" role="region" aria-labelledby="privacyTitle">
+              <p>LazyLedger respects your privacy and processes your personal data in accordance with the <strong>Data Privacy Act of 2012 (Republic Act No. 10173)</strong>, its Implementing Rules and Regulations, and issuances of the National Privacy Commission (NPC).</p>
+              <p><strong>What we collect.</strong> Your name, email address, date of birth, gender and preferred currency; the accounts, transactions, budgets, category requests and support tickets you enter; and security records such as login times, IP addresses and an activity log of actions taken on your account.</p>
+              <p><strong>Why we collect it.</strong> To create and secure your account, confirm you meet the minimum age, show your finances in your chosen currency, send account and support emails, respond to your requests and tickets, and detect and investigate misuse.</p>
+              <p><strong>Who can see it.</strong> Your balances and transactions are visible only to you. Our support staff can see your name, email, account status, category requests and tickets, never your transactions. Administrators see aggregated statistics and a security activity log that records which actions were taken (for example, “added a transaction”) but not amounts or descriptions. We do not sell your data. Service providers that process data on our behalf: our hosting provider, Brevo (email delivery) and Google reCAPTCHA (bot protection at login). Exchange rates are fetched from the Frankfurter API without any personal data.</p>
+              <p><strong>How long we keep it.</strong> Until you delete your account from your Profile, which permanently erases your financial records. Security log entries may be kept afterwards to protect the service.</p>
+              <p><strong>Your rights.</strong> You have the right to be informed, to access, correct, and object to processing of your data, to erasure or blocking, to data portability (export your transactions as CSV from your Profile), to damages, and to file a complaint with the National Privacy Commission.</p>
+              <p class="mb-0"><strong>Contact.</strong> For privacy questions or requests, email our Data Protection Officer at <a href="mailto:support@lazyledger.app">support@lazyledger.app</a>.</p>
+            </div>
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" id="regConsent" name="privacy_consent" required>
+              <label class="form-check-label fw-bold small" for="regConsent">I confirm that the information I provided is true and correct, and I have read and agree to the collection and processing of my personal data as described in the Data Privacy Notice.<span class="req">*</span></label>
+              <div class="invalid-feedback"></div>
+            </div>
           </div>
         </div>
         <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mt-4">

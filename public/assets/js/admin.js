@@ -47,9 +47,12 @@
           <div class="progress-ll"><div style="width:${(c.uses / max) * 100}%"></div></div></div>`).join('')
       : html`<p class="empty-hint">No transactions yet.</p>`;
     $('#recentActivity').innerHTML = o.recent_activity.length
-      ? o.recent_activity.map((a) => html`<tr><td class="small text-muted-ll fw-normal text-nowrap">${fmtDateTime(a.created_at)}</td><td>${a.actor || 'Deleted user'}</td><td><code>${a.action}</code></td><td class="small fw-normal">${a.details}</td></tr>`).join('')
+      ? o.recent_activity.map((a) => html`<tr><td class="small text-muted-ll fw-normal text-nowrap">${fmtDateTime(a.created_at)}</td><td>${a.actor || actorFallback(a.action)}${a.actor_role ? raw(html` <span class="role-badge">${a.actor_role}</span>`) : ''}</td><td><code>${a.action}</code></td><td class="small fw-normal">${a.details}</td></tr>`).join('')
       : html`<tr><td class="empty-hint">No activity yet.</td></tr>`;
   }
+
+  // Entries with no actor: failed logins for unknown emails, or users deleted since.
+  const actorFallback = (action) => (String(action).startsWith('auth.') ? 'Anonymous visitor' : 'Deleted user');
 
   async function loadUsers() {
     const res = await api('/admin/users', { query: { ...formData($('#usersFilter')), page: state.usersPage, sort: state.sort, dir: state.dir } });
@@ -93,7 +96,7 @@
     $('#auditBody').innerHTML = res.data.length
       ? res.data.map((a) => html`<tr>
           <td class="text-nowrap small">${fmtDateTime(a.created_at)}</td>
-          <td>${a.actor_name || 'Deleted user'}<div class="small text-muted-ll fw-normal">${a.actor_email || ''} ${a.actor_role ? `· ${a.actor_role}` : ''}</div></td>
+          <td>${a.actor_name || actorFallback(a.action)}<div class="small text-muted-ll fw-normal">${a.actor_email || ''} ${a.actor_role ? `· ${a.actor_role}` : ''}</div></td>
           <td><code>${a.action}</code></td><td class="small">${a.target_type} #${a.target_id ?? '—'}</td><td class="small fw-normal">${a.details}</td></tr>`).join('')
       : html`<tr><td colspan="5" class="empty-hint">No entries match.</td></tr>`;
     LL.pagination($('#auditPager'), res.meta, (p) => { state.auditPage = p; loadAudit().catch(handleError); });
