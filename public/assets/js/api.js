@@ -65,15 +65,28 @@ const LL = (() => {
   class Raw { constructor(value) { this.value = value; } }
   const raw = (value) => new Raw(value);
 
-  // Currency: amounts are stored in PHP; the dashboard can display them in USD via the Frankfurter API.
-  const currency = { code: 'PHP', rate: 1 };
+  // Currency: amounts are stored in the user's own currency (`base`, chosen at sign-up).
+  // The dashboard can display them in another currency (`code`) at `rate` via the Frankfurter API.
+  const baseCurrency = document.body?.dataset.currency || 'PHP';
+  const currency = { base: baseCurrency, code: baseCurrency, rate: 1 };
+  const formatters = new Map();
+  function formatter(code) {
+    if (!formatters.has(code)) {
+      try {
+        formatters.set(code, new Intl.NumberFormat('en-US', { style: 'currency', currency: code }));
+      } catch {
+        formatters.set(code, { format: (n) => `${code} ${n.toFixed(2)}`, formatToParts: () => [{ type: 'currency', value: code }] });
+      }
+    }
+    return formatters.get(code);
+  }
   function money(amount, { sign = false } = {}) {
     const n = Number(amount || 0) * currency.rate;
-    const abs = Math.abs(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const symbol = currency.code === 'USD' ? '$' : '₱';
     const prefix = n < 0 ? '-' : sign ? '+' : '';
-    return `${prefix}${symbol}${abs}`;
+    return prefix + formatter(currency.code).format(Math.abs(n));
   }
+  /** e.g. "₱", "$", "€", "CA$" */
+  const currencySymbol = (code = currency.base) => formatter(code).formatToParts(0).find((p) => p.type === 'currency')?.value || code;
 
   const fmtDate = (d) => {
     if (!d) return '—';
@@ -254,7 +267,7 @@ const LL = (() => {
   }
 
   return {
-    api, ApiError, escapeHtml, html, raw, money, currency, fmtDate, fmtDateTime, today, monthKey, monthLabel, shiftMonth,
+    api, ApiError, escapeHtml, html, raw, money, currency, currencySymbol, fmtDate, fmtDateTime, today, monthKey, monthLabel, shiftMonth,
     toast, showErrors, clearErrors, formData, submitting, confirm, debounce, pagination, statusPill, progressBar, router, bindLogout,
   };
 })();

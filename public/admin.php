@@ -27,7 +27,7 @@ render_shell_start($user, [
       <div class="col-lg-8"><div class="ll-card"><h2 class="ll-card-title mb-2">Signups &amp; transactions per month</h2><div class="chart-box"><canvas id="growthChart" role="img" aria-label="Signups and transactions per month"></canvas></div></div></div>
       <div class="col-lg-4"><div class="ll-card"><h2 class="ll-card-title mb-2">Users by role</h2><div class="chart-box"><canvas id="roleChart" role="img" aria-label="Users by role"></canvas></div></div></div>
       <div class="col-lg-5"><div class="ll-card"><h2 class="ll-card-title mb-2">Most-used categories</h2><div id="topCats"></div></div></div>
-      <div class="col-lg-7"><div class="ll-card"><div class="d-flex justify-content-between"><h2 class="ll-card-title mb-2">Recent admin &amp; staff activity</h2><a class="see-all" href="#audit">See all</a></div>
+      <div class="col-lg-7"><div class="ll-card"><div class="d-flex justify-content-between"><h2 class="ll-card-title mb-2">Recent activity (all users)</h2><a class="see-all" href="#audit">See all</a></div>
         <div class="table-responsive"><table class="table table-ll table-sm"><tbody id="recentActivity"></tbody></table></div></div></div>
     </div>
   </div>
@@ -80,11 +80,16 @@ render_shell_start($user, [
 <section class="view" data-view="audit" hidden aria-labelledby="auditTitle">
   <div class="content-panel">
     <h1 class="page-title mb-3" id="auditTitle">Audit Log</h1>
-    <p class="privacy-note">Append-only record. Entries cannot be edited or deleted.</p>
+    <p class="privacy-note">Append-only record of every customer, staff and admin action (sign-ups, logins, failed logins, and every create / update / delete). Entries cannot be edited or deleted.</p>
     <form class="row g-2 mb-2" id="auditFilter" role="search">
-      <div class="col-md-6"><label class="visually-hidden" for="aQ">Search</label><input class="form-control border-0" type="search" id="aQ" name="q" placeholder="Search action, details or email"></div>
-      <div class="col-6 col-md-3"><label class="form-label small visually-hidden" for="aFrom">From</label><input class="form-control border-0" type="date" id="aFrom" name="from" aria-label="From date"></div>
-      <div class="col-6 col-md-3"><label class="form-label small visually-hidden" for="aTo">To</label><input class="form-control border-0" type="date" id="aTo" name="to" aria-label="To date"></div>
+      <div class="col-md-4"><label class="visually-hidden" for="aQ">Search</label><input class="form-control border-0" type="search" id="aQ" name="q" placeholder="Search action, details or email"></div>
+      <div class="col-6 col-md-2"><label class="visually-hidden" for="aRole">Role</label><select class="form-select border-0" id="aRole" name="role"><option value="">All roles</option><option value="customer">Customers</option><option value="staff">Staff</option><option value="admin">Admins</option></select></div>
+      <div class="col-6 col-md-2"><label class="visually-hidden" for="aCategory">Action type</label><select class="form-select border-0" id="aCategory" name="category">
+        <option value="">All actions</option><option value="auth">Login / logout</option><option value="profile">Profile</option><option value="transaction">Transactions</option>
+        <option value="account">Accounts</option><option value="budget">Budgets</option><option value="category_request">Category requests</option>
+        <option value="ticket">Support tickets</option><option value="user">User management</option><option value="category">Global categories</option></select></div>
+      <div class="col-6 col-md-2"><label class="form-label small visually-hidden" for="aFrom">From</label><input class="form-control border-0" type="date" id="aFrom" name="from" aria-label="From date"></div>
+      <div class="col-6 col-md-2"><label class="form-label small visually-hidden" for="aTo">To</label><input class="form-control border-0" type="date" id="aTo" name="to" aria-label="To date"></div>
     </form>
     <div class="ll-card">
       <div class="table-responsive"><table class="table table-ll table-sm">

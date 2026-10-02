@@ -51,6 +51,7 @@
     const s = await api('/stats/summary', { query: { month: state.month } });
     state.summary = s;
 
+    // New users get the checklist; the budget card stays visible for everyone because it's the focal point.
     const isNew = s.counts.transactions === 0;
     $('#onboarding').hidden = !isNew;
     $('#homeMain').hidden = isNew;
@@ -60,24 +61,18 @@
         step.classList.toggle('done', s.counts[k] > 0);
         if (s.counts[k] > 0) step.innerHTML = '<i class="bi bi-check-lg"></i>';
       });
-      return;
     }
+    renderBudgetHero(s);
 
-    $('#leftToSpend').textContent = s.budgeted > 0 ? money(s.left_to_spend) : '—';
-    $('#leftToSpend').classList.toggle('text-expense', s.left_to_spend < 0);
-    $('#pctUsed').textContent = s.pct_used !== null ? `${Math.round(s.pct_used)}% used` : 'Set a budget to track this';
+    $('#alertBox').innerHTML = s.alerts.length
+      ? html`<div class="alert alert-ll d-flex gap-2 align-items-start" role="alert"><i class="bi bi-exclamation-triangle-fill"></i><div>${s.alerts.map((a) => raw(html`<div>${a.category_name}: ${a.pct > 100 ? 'over budget' : 'almost at its limit'} (${money(a.spent)} of ${money(a.amount_limit)})</div>`))}</div></div>`
+      : '';
+    if (isNew) return;
+
     $('#incomeTotal').textContent = money(s.income);
     $('#expenseTotal').textContent = money(s.expense);
     setChange($('#incomeChange'), s.income_change, true);
     setChange($('#expenseChange'), s.expense_change, false);
-
-    $('#alertBox').innerHTML = s.alerts.length
-      ? html`<div class="alert alert-ll d-flex gap-2 align-items-start" role="alert"><i class="bi bi-exclamation-triangle-fill"></i><div>${s.alerts.map((a) => raw(html`<div>${a.category_name}:${a.pct > 100 ? 'over budget' : 'almost at its limit'} (${money(a.spent)} of${money(a.amount_limit)})</div>`))}</div></div>`
-      : '';
-
-    $('#homeBudgets').innerHTML = s.budgets.length
-      ? s.budgets.slice(0, 4).map(budgetRow).join('')
-      : html`<p class="empty-hint mb-0">No budgets for this month. <a href="#budgets">Create one</a>.</p>`;
 
     $('#homeRecent').innerHTML = s.recent.length
       ? s.recent.map((t) => html`<tr><td>${t.description}<div class="small text-muted-ll fw-normal">${fmtDate(t.transaction_date)} · ${t.category_name || 'Uncategorized'}</div></td>
@@ -89,6 +84,53 @@
       : html`<li class="empty-hint">No bills due in the next 30 days.</li>`;
 
     renderDonut(s.breakdown);
+  }
+
+  /** The budget card at the top of Home: what's left, how much is used, and whether spending is on pace. */
+  function renderBudgetHero(s) {
+    const label = LL.monthLabel(state.month);
+    const hasBudget = s.budgeted > 0;
+    $('#heroBody').hidden = !hasBudget;
+    $('#heroEmpty').hidden = hasBudget;
+    $('#heroEmptyMonth').textContent = label;
+    if (!hasBudget) return;
+
+    const over = s.left_to_spend < 0;
+    const pct = s.pct_used ?? 0;
+    $('#heroMonth').textContent = label;
+    $('#heroLeft').textContent = money(Math.abs(s.left_to_spend));
+    $('#heroLeft').classList.toggle('text-expense', over);
+    $('#heroLeftLabel').textContent = over ? 'over budget' : 'left to spend';
+    $('#heroSpent').textContent = money(s.expense);
+    $('#heroBudgeted').textContent = money(s.budgeted);
+
+    const meter = $('#heroMeter');
+    meter.className = `hero-meter ${pct > 100 ? 'over' : pct >= 90 ? 'warn' : ''}`;
+    meter.firstElementChild.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+    meter.setAttribute('aria-valuenow', String(Math.round(pct)));
+    meter.setAttribute('aria-valuetext', `${Math.round(pct)}% of budget used`);
+
+    // Pace only makes sense for the month in progress.
+    const pace = $('#heroPace');
+    if (state.month === LL.monthKey()) {
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysLeft = daysInMonth - now.getDate() + 1;
+      const elapsedPct = (now.getDate() / daysInMonth) * 100;
+      if (over) {
+        pace.innerHTML = html`<i class="bi bi-exclamation-octagon-fill text-expense"></i> You've gone over this month's budget with ${daysLeft} day${daysLeft === 1 ? '' : 's'} to go.`;
+      } else {
+        const perDay = money(s.left_to_spend / daysLeft);
+        const ahead = pct > elapsedPct + 10;
+        pace.innerHTML = html`<i class="bi ${ahead ? 'bi-speedometer2 text-expense' : 'bi-check-circle-fill text-income'}"></i> ${Math.round(pct)}% used, ${Math.round(elapsedPct)}% of the month gone. ${ahead ? 'Spending faster than planned: ' : 'On track: '}about <strong>${perDay}/day</strong> for the next ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`;
+      }
+    } else {
+      pace.innerHTML = html`<i class="bi bi-calendar-check"></i> ${over ? 'Finished' : 'Finished with'} ${money(Math.abs(s.left_to_spend))} ${over ? 'over budget' : 'to spare'} (${Math.round(pct)}% used).`;
+    }
+
+    $('#homeBudgets').innerHTML = s.budgets.length
+      ? s.budgets.slice(0, 6).map(budgetRow).join('') + (s.budgets.length > 6 ? html`<a class="see-all" href="#budgets">+${s.budgets.length - 6} more</a>` : '')
+      : html`<p class="empty-hint mb-0">Split your budget by category to see where it goes. <button class="btn-link-ll" data-action="add-budget">Add a category budget</button></p>`;
   }
 
   function setChange(el, pct, goodWhenUp) {
@@ -127,29 +169,36 @@
     });
   }
 
-  // External API: Frankfurter exchange rates (ECB data), PHP -> USD.
-  async function toggleCurrency() {
-    const btn = $('#currencyBtn');
-    if (LL.currency.code === 'USD') {
-      LL.currency.code = 'PHP'; LL.currency.rate = 1;
-      btn.textContent = 'View in USD';
+  // External API: Frankfurter exchange rates (ECB data). Amounts are stored in the user's own
+  // currency (LL.currency.base); any other currency is a converted view of the same numbers.
+  const rateCache = new Map();
+  async function setDisplayCurrency(code) {
+    const select = $('#currencySelect');
+    const { base } = LL.currency;
+    if (code === base) {
+      LL.currency.code = base; LL.currency.rate = 1;
       $('#rateNote').hidden = true;
     } else {
-      btn.disabled = true;
+      select.disabled = true;
       try {
-        const res = await fetch('https://api.frankfurter.dev/v1/latest?base=PHP&symbols=USD');
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        LL.currency.code = 'USD'; LL.currency.rate = data.rates.USD;
-        btn.textContent = 'View in PHP';
-        $('#rateNote').textContent = `Showing USD at ₱1 = $${data.rates.USD} (ECB rate for ${data.date}, via Frankfurter).`;
+        if (!rateCache.has(code)) {
+          const res = await fetch(`https://api.frankfurter.dev/v1/latest?base=${encodeURIComponent(base)}&symbols=${encodeURIComponent(code)}`);
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          if (!data.rates?.[code]) throw new Error();
+          rateCache.set(code, { rate: data.rates[code], date: data.date });
+        }
+        const { rate, date } = rateCache.get(code);
+        LL.currency.code = code; LL.currency.rate = rate;
+        $('#rateNote').textContent = `Showing ${code} at 1 ${base} = ${rate} ${code} (ECB rate for ${date}, via Frankfurter). Your amounts are still recorded in ${base}.`;
         $('#rateNote').hidden = false;
       } catch {
-        toast('Could not fetch exchange rates right now.', 'error');
+        toast(`Could not fetch the ${code} exchange rate right now.`, 'error');
       } finally {
-        btn.disabled = false;
+        select.disabled = false;
       }
     }
+    select.value = LL.currency.code;
     loadView(state.view);
   }
 
@@ -193,7 +242,7 @@
   function syncAccountType() {
     const isCard = $('#accType').value === 'credit_card';
     $('#accDueWrap').hidden = !isCard;
-    $('#accOpeningLabel').textContent = isCard ? 'Amount currently owed (₱)' : 'Starting balance (₱)';
+    $('#accOpeningLabel').textContent = `${isCard ? 'Amount currently owed' : 'Starting balance'} (${LL.currencySymbol()})`;
   }
 
   // ---------- Transactions ----------
@@ -273,7 +322,7 @@
           ${LL.progressBar(b.pct)}
           <div class="small fw-bold ${b.remaining < 0 ? 'text-expense' : 'text-muted-ll'}">${b.remaining < 0 ? `${money(-b.remaining)} over` : `${money(b.remaining)} left`}</div>
         </div></div>`).join('')
-      : html`<div class="col-12"><p class="empty-hint">No category budgets for this month yet. Click “New budget” to give every peso a job.</p></div>`;
+      : html`<div class="col-12"><p class="empty-hint">No category budgets for this month yet. Click “New budget” to give your money a job.</p></div>`;
 
     $('#requestList').innerHTML = reqs.data.length
       ? reqs.data.map((r) => html`<tr><td>${r.requested_name}</td><td class="text-capitalize">${r.requested_type}</td><td>${LL.statusPill(r.status)}</td><td>${fmtDate(r.created_at.slice(0, 10))}</td></tr>`).join('')
@@ -401,7 +450,10 @@
 
   function loadView(view) {
     state.view = view;
-    return loaders[view]().catch(handleLoadError);
+    // The header "Add transaction" button only belongs on Home.
+    $('#headerActions').classList.toggle('d-none', view !== 'home');
+    state.loading = loaders[view]().catch(handleLoadError);
+    return state.loading;
   }
 
   async function afterDataChange() {
@@ -409,13 +461,58 @@
     await loadView(state.view);
   }
 
+  // ---------- Tutorial ----------
+  function tourSteps() {
+    const base = LL.currency.base;
+    const wide = window.matchMedia('(min-width: 992px)').matches; // sidebar is an off-canvas menu below this
+    const nav = (view, title, text) => ({ target: `.side-nav [data-view-link="${view}"]`, title, text });
+    return [
+      { title: 'Welcome to LazyLedger!', text: 'Here is a one-minute tour of your dashboard. Use the arrow keys or the buttons below; press Esc to skip.' },
+      { target: '#budgetHero', title: 'Your budget comes first', text: $('#heroEmpty').hidden
+        ? 'This card shows how much you have left to spend this month, how much of your budget is used, whether you are on pace, and how each category is doing. Tap the pencil to change your monthly total.'
+        : 'Start here: set a monthly budget. This card will then show how much you have left to spend, whether you are on pace, and how each category is doing.' },
+      { target: '#currencySelect', title: 'Your currency', text: `Your amounts are recorded in ${base}, the currency you chose at sign-up. Pick another currency here to view everything converted at live exchange rates.` },
+      { target: '#monthNav', title: 'Look back in time', text: 'Use the arrows to see your budget and spending for past months.' },
+      { target: '#headerActions', title: 'Add a transaction', text: 'Log an expense or income in a few seconds. You will find this button here on Home.' },
+      ...(wide ? [
+        nav('accounts', 'Accounts', 'Add your cash, bank, e-wallet and credit card accounts. Balances update automatically from your transactions.'),
+        nav('transactions', 'Transactions', 'Search, filter, sort, edit and export your full history as a CSV file.'),
+        nav('budgets', 'Budgets', 'Set a monthly total, split it by category, and request a new category if one is missing.'),
+        nav('stats', 'Stats', 'See monthly trends, your top spending categories and automatic insights.'),
+        nav('profile', 'Profile', 'Update your details and notification settings, read your inbox, and contact support with a ticket.'),
+      ] : [
+        { target: '.hamburger', title: 'The menu', text: 'Open this menu to reach Accounts, Transactions, Budgets, Stats and your Profile (where you can also contact support).' },
+      ]),
+      { target: '[data-action="tour"]', title: 'That is it!', text: 'You can replay this tour any time with this button. Happy budgeting!' },
+    ];
+  }
+
+  async function startTour() {
+    if (LLTour.isActive()) return;
+    if (state.view !== 'home') {
+      // The router's own hashchange listener (registered first) shows Home and starts loading it.
+      await new Promise((resolve) => {
+        window.addEventListener('hashchange', resolve, { once: true });
+        location.hash = '#home';
+      });
+    }
+    await state.loading; // tour targets must be rendered before we spotlight them
+    LLTour.start(tourSteps(), {
+      onEnd: () => {
+        if (document.body.dataset.tour === 'done') return;
+        document.body.dataset.tour = 'done';
+        api('/profile/tour', { method: 'PUT' }).catch(() => { /* non-critical: it may show again next login */ });
+      },
+    });
+  }
+
   // ---------- Event wiring ----------
   function wire() {
     LL.bindLogout();
-    if (window.location.pathname === '/customer' || window.location.pathname.includes('app.php')) {
     $('#headerActions').innerHTML = '<button class="btn btn-ll d-none d-sm-inline-block" data-action="add-transaction"><i class="bi bi-plus-lg"></i> Add transaction</button>'
       + '<button class="btn btn-ll d-sm-none" data-action="add-transaction" aria-label="Add transaction"><i class="bi bi-plus-lg"></i></button>';
-}
+    // Every form amount is entered in the user's own currency, whatever the display currency is.
+    document.querySelectorAll('[data-cur-symbol]').forEach((el) => { el.textContent = LL.currencySymbol(); });
 
     document.addEventListener('click', async (e) => {
       const t = e.target.closest('[data-action],[data-edit-tx],[data-del-tx],[data-edit-account],[data-edit-budget],[data-read]');
@@ -426,8 +523,12 @@
         if (!state.budgets || state.view !== 'budgets') await loadBudgets();
         openBudgetModal();
       } else if (t.dataset.action === 'set-total') {
-        $('#totalAmount').value = state.budgetSummary?.monthly_budget ?? '';
+        const current = state.view === 'budgets' ? state.budgetSummary : state.summary;
+        $('#totalAmount').value = current?.monthly_budget ?? '';
+        LL.clearErrors($('#totalForm'));
         modal('totalModal').show();
+      } else if (t.dataset.action === 'tour') {
+        startTour();
       } else if (t.dataset.action === 'request-category') { $('#requestForm').reset(); LL.clearErrors($('#requestForm')); modal('requestModal').show(); }
       else if (t.dataset.action === 'new-ticket') { $('#ticketForm').reset(); LL.clearErrors($('#ticketForm')); modal('ticketModal').show(); }
       else if (t.dataset.editTx) openTxModal(state.tx.rows.get(Number(t.dataset.editTx)));
@@ -445,7 +546,7 @@
     // Home
     $('#prevMonth').addEventListener('click', () => { state.month = LL.shiftMonth(state.month, -1); loadHome().catch(handleLoadError); });
     $('#nextMonth').addEventListener('click', () => { state.month = LL.shiftMonth(state.month, 1); loadHome().catch(handleLoadError); });
-    $('#currencyBtn').addEventListener('click', toggleCurrency);
+    $('#currencySelect').addEventListener('change', (e) => setDisplayCurrency(e.target.value));
 
     // Transaction form
     $('#txForm').querySelectorAll('input[name="type"]').forEach((r) => r.addEventListener('change', () => fillTxCategories(r.value)));
@@ -663,5 +764,6 @@
     try { await loadRefs(); } catch (err) { handleLoadError(err); }
     refreshBadge();
     LL.router(Object.keys(loaders), loadView);
+    if (document.body.dataset.tour === 'pending') startTour();
   });
 })();

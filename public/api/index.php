@@ -55,6 +55,7 @@ $r->get('/profile', [ProfileController::class, 'show']);
 $r->put('/profile', [ProfileController::class, 'update']);
 $r->put('/profile/password', [ProfileController::class, 'password']);
 $r->delete('/profile', [ProfileController::class, 'destroy']);
+$r->put('/profile/tour', [ProfileController::class, 'completeTour']);
 $r->get('/notifications', [NotificationController::class, 'index']);
 $r->put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
 $r->put('/notifications/{id}/read', [NotificationController::class, 'markRead']);

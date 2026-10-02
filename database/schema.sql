@@ -9,9 +9,14 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash   VARCHAR(255) NOT NULL,
     role            ENUM('customer','staff','admin') NOT NULL DEFAULT 'customer',
     status          ENUM('active','suspended')       NOT NULL DEFAULT 'active',
+    birth_date      DATE NULL,
+    gender          ENUM('male','female','non_binary','prefer_not_to_say') NULL,
+    currency        CHAR(3) NOT NULL DEFAULT 'PHP',  -- every amount this user stores is in this currency
     monthly_budget  DECIMAL(12,2) NULL,
     budget_alerts   TINYINT(1) NOT NULL DEFAULT 1,
     bill_reminders  TINYINT(1) NOT NULL DEFAULT 1,
+    privacy_consent_at DATETIME NULL,              -- when the user accepted the Data Privacy notice
+    tour_completed_at  DATETIME NULL,              -- dashboard tutorial finished or skipped
     last_login_at   DATETIME NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_users_email (email),

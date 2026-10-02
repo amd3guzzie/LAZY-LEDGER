@@ -43,6 +43,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
+  // Mirrors the API rule: valid date, not in the future, at least 13 years old.
+  const birthDateError = (v) => {
+    if (!v) return 'Date of birth is required.';
+    const max = signupForm.elements.birth_date.max;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v < '1900-01-01') return 'Please enter a valid date of birth.';
+    if (v > LL.today()) return 'Date of birth cannot be in the future.';
+    if (max && v > max) return 'You must be at least 13 years old to sign up.';
+    return null;
+  };
+  const consentError = 'Please confirm your details and agree to the Data Privacy Notice.';
+
 // --- PASSWORD VISIBILITY TOGGLE ---
   document.querySelectorAll('.toggle-password').forEach(button => {
     button.addEventListener('click', function() {
@@ -87,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const btn = loginForm.querySelector('[type="submit"]');
     LL.clearErrors(loginForm);
+    document.getElementById('loginSuccess').hidden = true;
     if (btn) btn.disabled = true;
 
     grecaptcha.ready(function() {
@@ -149,14 +161,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const pw = signupForm.elements.password.value;
       if (!val) err = 'Please confirm your password.';
       else if (val !== pw) err = 'Passwords do not match.';
+    } else if (name === 'birth_date') {
+      err = birthDateError(val);
+    } else if (name === 'gender') {
+      if (!val) err = 'Please select a gender (or “Prefer not to say”).';
+    } else if (name === 'privacy_consent') {
+      if (!input.checked) err = consentError;
     }
     
     showInlineError(input, err);
   };
 
-  // Attach the blur listener to all inputs in the sign up form
+  // Without this, mousedown on "Sign up" blurs the focused field, its error message pushes the
+  // button down, and the mouseup misses it, so the first click does nothing. Submit validates every field anyway.
+  signupForm.querySelector('[type="submit"]').addEventListener('mousedown', (e) => e.preventDefault());
+
+  // Validate each field when the user leaves it (selects and the checkbox on change)
   Array.from(signupForm.elements).forEach(el => {
-    if (el.tagName === 'INPUT') {
+    if (el.type === 'checkbox' || el.tagName === 'SELECT') {
+      el.addEventListener('change', () => validateSignupField(el));
+    } else if (el.tagName === 'INPUT') {
       el.addEventListener('blur', () => validateSignupField(el));
     }
   });
@@ -209,20 +233,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!data.first_name || data.first_name.length < 2) fields.first_name = 'First name must be at least 2 characters.';
     if (data.last_name && data.last_name.length < 2) fields.last_name = 'Last name must be at least 2 characters.';
     if (!emailOk(data.email)) fields.email = 'Please enter a valid email address.';
-    if (data.password.length < 8 || !/[A-Za-z]/.test(data.password) || !/\d/.test(data.password)) {
+    if (!data.password) {
+      fields.password = 'Password is required.';
+    } else if (data.password.length < 8 || !/[A-Za-z]/.test(data.password) || !/\d/.test(data.password)) {
       fields.password = 'At least 8 characters, with a letter and a number.';
     }
     if (data.password !== data.confirm_password) fields.confirm_password = 'Passwords do not match.';
+    const dobErr = birthDateError(data.birth_date);
+    if (dobErr) fields.birth_date = dobErr;
+    if (!data.gender) fields.gender = 'Please select a gender (or “Prefer not to say”).';
+    if (!data.currency) fields.currency = 'Please choose a currency.';
+    if (data.privacy_consent !== true) fields.privacy_consent = consentError;
     
     if (Object.keys(fields).length) return LL.showErrors(form, { fields });
     
     LL.submitting(form, async () => {
       const res = await LL.api('/auth/register', { method: 'POST', body: data });
-      if (res && res.redirect) {
-        window.location.href = res.redirect;
-      } else {
-        throw new Error('Invalid server response format. Please check the backend.');
-      }
+      if (!res || !res.ok) throw new Error('Invalid server response format. Please check the backend.');
+
+      // Account created, but no session: the user has to log in (and pass the CAPTCHA) first.
+      form.reset();
+      LL.clearErrors(form);
+      pwHelp.textContent = 'At least 8 characters, with a letter and a number.';
+      pwHelp.className = 'form-text';
+      bootstrap.Modal.getInstance(signupModalEl)?.hide();
+      signupModalEl.addEventListener('hidden.bs.modal', () => {
+        LL.clearErrors(loginForm);
+        loginForm.elements.email.value = res.email || data.email;
+        loginForm.elements.password.value = '';
+        const ok = document.getElementById('loginSuccess');
+        ok.textContent = res.message || 'Account created! Please log in to continue.';
+        ok.hidden = false;
+        bootstrap.Modal.getOrCreateInstance(loginModalEl).show();
+        loginModalEl.addEventListener('shown.bs.modal', () => loginForm.elements.password.focus(), { once: true });
+      }, { once: true });
     });
   });
 });

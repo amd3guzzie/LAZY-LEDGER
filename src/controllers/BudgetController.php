@@ -83,25 +83,29 @@ final class BudgetController
             'INSERT INTO budgets (user_id, category_id, amount_limit, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
             [$user['id'], $categoryId, $limit, $start, $end]
         );
-        return ['data' => self::find((int) db()->lastInsertId(), (int) $user['id'])];
+        $budget = self::find((int) db()->lastInsertId(), (int) $user['id']);
+        audit((int) $user['id'], 'budget.create', 'budget', $budget['id'], $budget['category_name'] . ' for ' . substr($start, 0, 7));
+        return ['data' => $budget];
     }
 
     public static function update(int $id): array
     {
         $user = require_role('customer');
-        self::find($id, (int) $user['id']);
+        $before = self::find($id, (int) $user['id']);
         $v = new Validator(read_json());
         $limit = $v->money('amount_limit', 'Budget amount');
         $v->done();
         q('UPDATE budgets SET amount_limit = ? WHERE id = ? AND user_id = ?', [$limit, $id, $user['id']]);
+        audit((int) $user['id'], 'budget.update', 'budget', $id, $before['category_name'] . ' limit changed');
         return ['data' => self::find($id, (int) $user['id'])];
     }
 
     public static function destroy(int $id): array
     {
         $user = require_role('customer');
-        self::find($id, (int) $user['id']);
+        $budget = self::find($id, (int) $user['id']);
         q('DELETE FROM budgets WHERE id = ? AND user_id = ?', [$id, $user['id']]);
+        audit((int) $user['id'], 'budget.delete', 'budget', $id, $budget['category_name']);
         return ['ok' => true];
     }
 
@@ -117,6 +121,7 @@ final class BudgetController
             $v->done();
         }
         q('UPDATE users SET monthly_budget = ? WHERE id = ?', [$amount, $user['id']]);
+        audit((int) $user['id'], 'budget.set_total', 'user', (int) $user['id'], $amount === null ? 'cleared monthly total' : 'set monthly total');
         return ['monthly_budget' => $amount];
     }
 

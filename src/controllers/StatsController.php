@@ -46,6 +46,7 @@ final class StatsController
             'expense' => $cur['expense'],
             'income_change' => self::pctChange($prev['income'], $cur['income']),
             'expense_change' => self::pctChange($prev['expense'], $cur['expense']),
+            'monthly_budget' => $user['monthly_budget'] !== null ? (float) $user['monthly_budget'] : null,
             'budgeted' => round($budgeted, 2),
             'left_to_spend' => round($budgeted - $cur['expense'], 2),
             'pct_used' => $budgeted > 0 ? round($cur['expense'] / $budgeted * 100, 1) : null,
