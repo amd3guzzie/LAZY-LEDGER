@@ -129,3 +129,16 @@ CREATE TABLE IF NOT EXISTS audit_log (
     KEY idx_audit_created (created_at),
     CONSTRAINT fk_audit_actor FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One-time codes for "Forgot password". Only a hash of the code is stored.
+CREATE TABLE IF NOT EXISTS password_resets (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT UNSIGNED NOT NULL,
+    code_hash   VARCHAR(255) NOT NULL,
+    attempts    TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    expires_at  DATETIME NOT NULL,
+    used_at     DATETIME NULL,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_resets_user (user_id, created_at),
+    CONSTRAINT fk_resets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

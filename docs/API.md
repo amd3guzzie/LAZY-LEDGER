@@ -4,15 +4,17 @@ Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 
 - **Auth**: PHP session cookie (`lazyledger_sid`), set by `POST /auth/login` (registering does not log you in).
 - **CSRF**: every `POST`, `PUT`, `DELETE` must send `X-CSRF-Token: <token>`. Pages expose the token in `<meta name="csrf-token">`; login also returns a fresh `csrf`.
-- **Errors**: `{ "error": "message", "fields": { "field": "message" } }` with status `401` (not logged in), `403` (wrong role / bad CSRF), `404`, `405`, `409` (duplicate/conflict), `422` (validation), `429` (too many login attempts), `500`.
+- **Errors**: `{ "error": "message", "fields": { "field": "message" } }` with status `401` (not logged in), `403` (wrong role / bad CSRF), `404`, `405`, `409` (duplicate/conflict), `422` (validation), `429` (too many login attempts or reset-code requests), `500`.
 - **Pagination** (list endpoints that page): `?page=1&per_page=10` → `{ "data": [...], "meta": { "page", "per_page", "total", "pages" } }`.
 
 ## Auth
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/auth/register` | `first_name, last_name?, email, birth_date, gender, currency, password, confirm_password, privacy_consent` | Creates a customer but does **not** log in; the user must then `POST /auth/login`. Password: 8–72 chars, letter + number. `birth_date`: `YYYY-MM-DD`, age 13+. `gender`: `male`, `female`, `non_binary`, `prefer_not_to_say`. `currency`: an ISO code supported by Frankfurter (see `src/currencies.php`); every amount the user stores is in this currency. `privacy_consent` must be JSON `true` (agreement to the Data Privacy Notice; time is stored). |
+| POST | `/auth/register` | `first_name, last_name, email, birth_date, gender, currency, password, confirm_password, privacy_consent` | Creates a customer but does **not** log in; the user must then `POST /auth/login`. Password: 8–72 chars, letter + number. `birth_date`: `YYYY-MM-DD`, age 13+. `gender`: `male`, `female`, `non_binary`, `prefer_not_to_say`. `currency`: an ISO code supported by Frankfurter (see `src/currencies.php`); every amount the user stores is in this currency. `privacy_consent` must be JSON `true` (agreement to the Data Privacy Notice; time is stored). |
 | POST | `/auth/login` | `email, password` | Returns `user`, `redirect`, `csrf`. |
+| POST | `/auth/forgot-password` | `email` | Emails a 6-digit code (valid 10 minutes, only the newest works). Same response whether or not the account exists. `429` if a code was sent in the last minute or 5 in the last hour. |
+| POST | `/auth/reset-password` | `email, code, password, confirm_password` | Sets a new password if the code matches. 5 wrong tries cancel the code. Does not log in. |
 | POST | `/auth/logout` | — | Destroys the session. |
 | GET | `/auth/me` | — | Current user. |
 
@@ -72,7 +74,7 @@ Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 
 | Method | Path | Body / query |
 |---|---|---|
-| GET | `/admin/overview` | user totals, active this week, signups & transactions per month, role breakdown, top categories, recent audit entries |
+| GET | `/admin/overview` | user totals, active this week, signups & transactions per month, role breakdown, customer demographics (gender, age groups, average age, currencies), top categories, recent audit entries |
 | GET | `/admin/users` | `q, role, status, sort (created\|name\|email\|last_login), dir, page` |
 | POST | `/admin/users` | `first_name, last_name?, email, role, password` |
 | PUT | `/admin/users/{id}` | `role?, status? (active\|suspended)` — not allowed on yourself |

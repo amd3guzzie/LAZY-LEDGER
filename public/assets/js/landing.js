@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const signupModalEl = document.getElementById('signupModal');
   const loginForm = document.getElementById('loginForm');
   const signupForm = document.getElementById('signupForm');
-  document.querySelectorAll('[data-bs-toggle="popover"]').forEach((el) => new bootstrap.Popover(el));
 
   // Helper to permanently freeze the login UI
   const lockLoginUI = () => {
@@ -126,6 +125,96 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // --- FORGOT PASSWORD (emailed one-time code) ---
+  const forgotModalEl = document.getElementById('forgotModal');
+  const forgotForm = document.getElementById('forgotForm');
+  const resetForm = document.getElementById('resetForm');
+  const pwRuleError = (v) => (v.length < 8 || !/[A-Za-z]/.test(v) || !/\d/.test(v) ? 'At least 8 characters, with a letter and a number.' : null);
+  let resetEmail = '';
+
+  const showForgotStep = (step) => {
+    forgotForm.hidden = step !== 'email';
+    resetForm.hidden = step !== 'code';
+    (step === 'email' ? forgotForm.elements.email : resetForm.elements.code).focus();
+  };
+
+  document.getElementById('forgotLink').addEventListener('click', () => {
+    forgotForm.reset();
+    resetForm.reset();
+    LL.clearErrors(forgotForm);
+    LL.clearErrors(resetForm);
+    forgotForm.elements.email.value = loginForm.elements.email.value.trim();
+    bootstrap.Modal.getInstance(loginModalEl)?.hide();
+    loginModalEl.addEventListener('hidden.bs.modal', () => bootstrap.Modal.getOrCreateInstance(forgotModalEl).show(), { once: true });
+  });
+  forgotModalEl.addEventListener('shown.bs.modal', () => showForgotStep('email'));
+
+  const requestCode = async (email) => {
+    const res = await LL.api('/auth/forgot-password', { method: 'POST', body: { email } });
+    resetEmail = email;
+    document.getElementById('resetSent').textContent = res.message;
+  };
+
+  forgotForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = forgotForm.elements.email.value.trim();
+    if (!emailOk(email)) return LL.showErrors(forgotForm, { fields: { email: 'Please enter a valid email address.' } });
+    LL.submitting(forgotForm, async () => {
+      await requestCode(email);
+      LL.clearErrors(forgotForm);
+      showForgotStep('code');
+    });
+  });
+
+  document.getElementById('resendCode').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      await requestCode(resetEmail);
+      LL.clearErrors(resetForm);
+      LL.toast('A new code is on its way.');
+    } catch (err) {
+      LL.showErrors(resetForm, err);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Digits only in the code box.
+  resetForm.elements.code.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
+  resetForm.elements.confirm_password.addEventListener('paste', (e) => e.preventDefault());
+
+  resetForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const data = {
+      email: resetEmail,
+      code: resetForm.elements.code.value.trim(),
+      password: resetForm.elements.password.value,
+      confirm_password: resetForm.elements.confirm_password.value,
+    };
+    const fields = {};
+    if (!/^\d{6}$/.test(data.code)) fields.code = 'Enter the 6-digit code from the email.';
+    const pwErr = data.password ? pwRuleError(data.password) : 'Password is required.';
+    if (pwErr) fields.password = pwErr;
+    if (data.password !== data.confirm_password) fields.confirm_password = 'Passwords do not match.';
+    if (Object.keys(fields).length) return LL.showErrors(resetForm, { fields });
+
+    LL.submitting(resetForm, async () => {
+      const res = await LL.api('/auth/reset-password', { method: 'POST', body: data });
+      bootstrap.Modal.getInstance(forgotModalEl)?.hide();
+      forgotModalEl.addEventListener('hidden.bs.modal', () => {
+        LL.clearErrors(loginForm);
+        loginForm.elements.email.value = res.email || resetEmail;
+        loginForm.elements.password.value = '';
+        const ok = document.getElementById('loginSuccess');
+        ok.textContent = res.message;
+        ok.hidden = false;
+        bootstrap.Modal.getOrCreateInstance(loginModalEl).show();
+        loginModalEl.addEventListener('shown.bs.modal', () => loginForm.elements.password.focus(), { once: true });
+      }, { once: true });
+    });
+  });
+
   // --- SIGNUP FORM (Inline Validation & Password Strength) ---
   
   // Helper to show errors on a single field instantly
@@ -150,7 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!val) err = 'First name is required.';
       else if (val.length < 2) err = 'First name must be at least 2 characters.';
     } else if (name === 'last_name') {
-      if (val && val.length < 2) err = 'Last name must be at least 2 characters.';
+      if (!val) err = 'Last name is required.';
+      else if (val.length < 2) err = 'Last name must be at least 2 characters.';
     } else if (name === 'email') {
       if (!val) err = 'Email is required.';
       else if (!emailOk(val)) err = 'Please enter a valid email address.';
@@ -231,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fields = {};
     
     if (!data.first_name || data.first_name.length < 2) fields.first_name = 'First name must be at least 2 characters.';
-    if (data.last_name && data.last_name.length < 2) fields.last_name = 'Last name must be at least 2 characters.';
+    if (!data.last_name || data.last_name.length < 2) fields.last_name = 'Last name must be at least 2 characters.';
     if (!emailOk(data.email)) fields.email = 'Please enter a valid email address.';
     if (!data.password) {
       fields.password = 'Password is required.';
