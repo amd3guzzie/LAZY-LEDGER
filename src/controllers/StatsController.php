@@ -25,14 +25,6 @@ final class StatsController
              WHERE a.user_id = ? ORDER BY t.transaction_date DESC, t.id DESC LIMIT 5',
             [$uid]
         );
-        $upcoming = q_all(
-            'SELECT a.id, a.name, a.due_date, ' . AccountController::BALANCE_SQL . ' AS balance
-             FROM accounts a LEFT JOIN transactions t ON t.account_id = a.id
-             WHERE a.user_id = ? AND a.type = \'credit_card\' AND a.due_date IS NOT NULL
-               AND a.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-             GROUP BY a.id ORDER BY a.due_date',
-            [$uid]
-        );
         $counts = q_one(
             'SELECT (SELECT COUNT(*) FROM accounts WHERE user_id = :u1) AS accounts,
                     (SELECT COUNT(*) FROM budgets WHERE user_id = :u2) AS budgets,
@@ -62,9 +54,7 @@ final class StatsController
                 'category_name' => $r['category_name'],
                 'account_name' => $r['account_name'],
             ], $recent),
-            'upcoming' => array_map(fn($r) => [
-                'id' => (int) $r['id'], 'name' => $r['name'], 'due_date' => $r['due_date'], 'balance' => (float) $r['balance'],
-            ], $upcoming),
+            'upcoming' => RecurringController::upcoming($user),
             'counts' => array_map('intval', $counts),
         ];
     }

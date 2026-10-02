@@ -6,7 +6,8 @@
   const $ = (sel) => document.querySelector(sel);
 
   const COLORS = ['#c14f27', '#fdd87d', '#7fb7c9', '#c77a5f', '#7ed957', '#f59366', '#5b8fa3', '#e8b04a', '#9e3f1d', '#b0d2dc'];
-  const TYPE_LABELS = { cash: 'Cash', bank: 'Bank', e_wallet: 'E-wallet', savings: 'Savings', credit_card: 'Credit card' };
+  const TYPE_LABELS = { cash: 'Cash', bank: 'Bank', e_wallet: 'E-wallet', savings: 'Savings' };
+  const FREQ_LABELS = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
 
   const state = {
     view: 'home',
@@ -15,6 +16,7 @@
     categories: [],
     me: null,
     tx: { page: 1, sort: 'date', dir: 'desc', rows: new Map() },
+    upcoming: new Map(),
     budgets: [],
     stats: { view: 'expense', months: 6 },
     charts: {},
@@ -79,11 +81,49 @@
           <td class="text-end amount ${t.type === 'income' ? 'text-income' : 'text-expense'}">${t.type === 'income' ? '+' : '-'}${money(t.amount)}</td></tr>`).join('')
       : html`<tr><td colspan="2" class="empty-hint">No transactions yet.</td></tr>`;
 
-    $('#homeUpcoming').innerHTML = s.upcoming.length
-      ? s.upcoming.map((u) => html`<li class="d-flex justify-content-between fw-bold py-1"><span class="text-salmon"><i class="bi bi-credit-card"></i> ${u.name} due ${fmtDate(u.due_date)}</span><span class="text-expense">${money(u.balance)}</span></li>`).join('')
-      : html`<li class="empty-hint">No bills due in the next 30 days.</li>`;
+    renderUpcoming(s.upcoming);
 
     renderDonut(s.breakdown);
+  }
+
+  /** Recurring bills and income due soon, each resolved as paid / not paid (received / not received for income). */
+  function renderUpcoming(items) {
+    state.upcoming = new Map(items.map((u) => [u.id, u]));
+    $('#homeUpcoming').innerHTML = items.length
+      ? items.map((u) => {
+        const income = u.type === 'income';
+        const days = daysUntil(u.next_due_date);
+        const when = days < 0 ? `Overdue since ${fmtDate(u.next_due_date)}` : days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `Due ${fmtDate(u.next_due_date)} · in ${days} days`;
+        return html`<li class="upcoming-row">
+          <div class="info">
+            <div class="fw-800"><i class="bi bi-arrow-repeat recurring-icon" aria-hidden="true"></i> ${u.description}
+              <span class="role-badge">${FREQ_LABELS[u.frequency]}</span></div>
+            <div class="due ${days < 0 ? 'text-expense' : days <= 3 ? 'text-salmon' : 'text-muted-ll'}">${when} · ${u.account_name}</div>
+          </div>
+          <span class="amount fw-800 ${income ? 'text-income' : 'text-expense'}">${income ? '+' : '-'}${money(u.amount)}</span>
+          <div class="actions">
+            <button class="btn btn-sm btn-success fw-bold" data-pay="${u.id}"><i class="bi bi-check-lg"></i> ${income ? 'Received' : 'Paid'}</button>
+            <button class="btn btn-sm btn-outline-secondary fw-bold" data-skip="${u.id}">Not ${income ? 'received' : 'paid'}</button>
+            <button class="btn-icon" data-stop-recurring="${u.id}" aria-label="Stop repeating ${u.description}" title="Stop repeating"><i class="bi bi-x-circle"></i></button>
+          </div></li>`;
+      }).join('')
+      : html`<li class="empty-hint">Nothing due in the next 30 days. Turn on “Recurring” when adding a transaction to track bills, subscriptions or salary here.</li>`;
+  }
+
+  const daysUntil = (ymd) => Math.round((new Date(`${ymd}T00:00:00`) - new Date(`${LL.today()}T00:00:00`)) / 86400000);
+
+  /** Same schedule rule as the API: monthly/yearly keep the start day when the month has it (31st -> 30th/28th). */
+  function nextDueDate(ymd, frequency, anchorDay) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    const anchor = anchorDay || d;
+    if (frequency === 'weekly') {
+      const dt = new Date(Date.UTC(y, m - 1, d + 7));
+      return dt.toISOString().slice(0, 10);
+    }
+    const ny = frequency === 'yearly' ? y + 1 : y + (m === 12 ? 1 : 0);
+    const nm = frequency === 'yearly' ? m : (m % 12) + 1;
+    const day = Math.min(anchor, new Date(Date.UTC(ny, nm, 0)).getUTCDate());
+    return `${ny}-${String(nm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
   /** The budget card at the top of Home: what's left, how much is used, and whether spending is on pace. */
@@ -217,9 +257,9 @@
               <button class="btn-icon" data-edit-account="${a.id}" aria-label="Edit ${a.name}"><i class="bi bi-pencil-fill"></i></button>
             </div>
             <div class="stat-value mt-2 ${a.balance < 0 ? 'text-expense' : ''}">${money(a.balance)}</div>
-            <div class="text-end small fw-bold ${a.due_date ? 'text-expense' : 'text-muted-ll'}">${a.due_date ? `Due ${fmtDate(a.due_date)}` : `${a.transaction_count} transactions`}</div>
+            <div class="text-end small fw-bold text-muted-ll">${a.transaction_count} transactions</div>
           </div></div>`).join('')
-      : html`<div class="col-12"><p class="empty-hint">No accounts yet. Add your cash, bank, e-wallet or credit card.</p></div>`;
+      : html`<div class="col-12"><p class="empty-hint">No accounts yet. Add your cash, bank, e-wallet or savings.</p></div>`;
   }
 
   function openAccountModal(account) {
@@ -232,17 +272,9 @@
     if (account) {
       form.elements.name.value = account.name;
       form.elements.type.value = account.type;
-      form.elements.opening_balance.value = Math.abs(account.opening_balance);
-      form.elements.due_date.value = account.due_date || '';
+      form.elements.opening_balance.value = account.opening_balance;
     }
-    syncAccountType();
     modal('accountModal').show();
-  }
-
-  function syncAccountType() {
-    const isCard = $('#accType').value === 'credit_card';
-    $('#accDueWrap').hidden = !isCard;
-    $('#accOpeningLabel').textContent = `${isCard ? 'Amount currently owed' : 'Starting balance'} (${LL.currencySymbol()})`;
   }
 
   // ---------- Transactions ----------
@@ -258,7 +290,7 @@
     body.innerHTML = res.data.length
       ? res.data.map((t) => html`<tr>
           <td>${fmtDate(t.transaction_date)}</td>
-          <td>${t.description}</td>
+          <td>${t.description}${t.recurring_id ? raw(html` <i class="bi bi-arrow-repeat recurring-icon" title="Repeats ${FREQ_LABELS[t.frequency].toLowerCase()}" aria-label="Repeats ${FREQ_LABELS[t.frequency].toLowerCase()}"></i>`) : ''}</td>
           <td>${t.category_name || 'Uncategorized'}</td>
           <td>${t.account_name}</td>
           <td class="text-end amount ${t.type === 'income' ? 'text-income' : 'text-expense'}">${t.type === 'income' ? '+' : '-'} ${money(t.amount)}</td>
@@ -297,7 +329,34 @@
     form.elements.amount.value = tx?.amount ?? '';
     form.elements.transaction_date.value = tx?.transaction_date || LL.today();
     form.elements.account_id.value = tx?.account_id || state.accounts[0].id;
+    form.elements.recurring.checked = Boolean(tx?.recurring_id);
+    form.elements.frequency.value = tx?.frequency || 'monthly';
+    state.tx.editing = tx || null;
+    syncRecurringFields();
     modal('txModal').show();
+  }
+
+  /** Show the frequency picker and a preview of the next due date while "Recurring" is on. */
+  function syncRecurringFields() {
+    const form = $('#txForm');
+    const on = form.elements.recurring.checked;
+    const type = form.querySelector('input[name="type"]:checked').value;
+    $('#txRecurringKind').textContent = type;
+    $('#txFrequencyWrap').hidden = !on;
+    if (!on) return;
+    const tx = state.tx.editing;
+    const freq = form.elements.frequency.value;
+    let next = null;
+    if (tx?.recurring_id && tx.frequency === freq) next = tx.next_due_date;
+    else if (form.elements.transaction_date.value) {
+      const start = form.elements.transaction_date.value;
+      const anchor = Number(start.slice(8, 10));
+      next = nextDueDate(start, freq, anchor);
+      while (next < LL.today()) next = nextDueDate(next, freq, anchor);
+    }
+    $('#txNextDue').textContent = next
+      ? `Next one due ${fmtDate(next)}.${tx?.recurring_id ? ' Changes here also apply to future occurrences.' : ''}`
+      : '';
   }
 
   // ---------- Budgets ----------
@@ -475,7 +534,7 @@
       { target: '#monthNav', title: 'Look back in time', text: 'Use the arrows to see your budget and spending for past months.' },
       { target: '#headerActions', title: 'Add a transaction', text: 'Log an expense or income in a few seconds. You will find this button here on Home.' },
       ...(wide ? [
-        nav('accounts', 'Accounts', 'Add your cash, bank, e-wallet and credit card accounts. Balances update automatically from your transactions.'),
+        nav('accounts', 'Accounts', 'Add your cash, bank, e-wallet and savings accounts. Balances update automatically from your transactions.'),
         nav('transactions', 'Transactions', 'Search, filter, sort, edit and export your full history as a CSV file.'),
         nav('budgets', 'Budgets', 'Set a monthly total, split it by category, and request a new category if one is missing.'),
         nav('stats', 'Stats', 'See monthly trends, your top spending categories and automatic insights.'),
@@ -506,6 +565,33 @@
     });
   }
 
+  async function resolveRecurring(btn) {
+    const u = state.upcoming.get(Number(btn.dataset.pay || btn.dataset.skip || btn.dataset.stopRecurring));
+    if (!u) return;
+    const income = u.type === 'income';
+    const due = fmtDate(u.next_due_date);
+    try {
+      if (btn.dataset.pay) {
+        const ok = await LL.confirm(`Mark "${u.description}" (due ${due}) as ${income ? 'received' : 'paid'}? We'll record ${income ? '+' : '-'}${money(u.amount)} on ${u.account_name} today.`, { okText: income ? 'Mark received' : 'Mark paid' });
+        if (!ok) return;
+        const res = await api(`/recurring/${u.id}/pay`, { method: 'POST', body: {} });
+        toast(`${income ? 'Received' : 'Paid'}. Next one due ${fmtDate(res.data.next_due_date)}.`);
+      } else if (btn.dataset.skip) {
+        const ok = await LL.confirm(`Mark "${u.description}" (due ${due}) as not ${income ? 'received' : 'paid'}? Nothing is recorded and it moves to the next due date.`, { okText: `Not ${income ? 'received' : 'paid'}` });
+        if (!ok) return;
+        const res = await api(`/recurring/${u.id}/skip`, { method: 'POST', body: {} });
+        toast(`Skipped. Next one due ${fmtDate(res.data.next_due_date)}.`, 'info');
+      } else {
+        const ok = await LL.confirm(`Stop repeating "${u.description}"? Transactions you already recorded are kept.`, { okText: 'Stop repeating' });
+        if (!ok) return;
+        await api(`/recurring/${u.id}`, { method: 'DELETE' });
+        toast('It will no longer repeat.');
+      }
+      await afterDataChange();
+      refreshBadge();
+    } catch (err) { handleLoadError(err); }
+  }
+
   // ---------- Event wiring ----------
   function wire() {
     LL.bindLogout();
@@ -515,7 +601,7 @@
     document.querySelectorAll('[data-cur-symbol]').forEach((el) => { el.textContent = LL.currencySymbol(); });
 
     document.addEventListener('click', async (e) => {
-      const t = e.target.closest('[data-action],[data-edit-tx],[data-del-tx],[data-edit-account],[data-edit-budget],[data-read]');
+      const t = e.target.closest('[data-action],[data-edit-tx],[data-del-tx],[data-edit-account],[data-edit-budget],[data-read],[data-pay],[data-skip],[data-stop-recurring]');
       if (!t) return;
       if (t.dataset.action === 'add-transaction') openTxModal();
       else if (t.dataset.action === 'add-account') openAccountModal();
@@ -538,6 +624,8 @@
         const tx = state.tx.rows.get(Number(t.dataset.delTx));
         if (!(await LL.confirm(`Delete "${tx.description}" (${money(tx.amount)})? Balances and budgets will update.`, { okText: 'Delete' }))) return;
         try { await api(`/transactions/${tx.id}`, { method: 'DELETE' }); toast('Transaction deleted.'); loadTransactions(); } catch (err) { handleLoadError(err); }
+      } else if (t.dataset.pay || t.dataset.skip || t.dataset.stopRecurring) {
+        resolveRecurring(t);
       } else if (t.dataset.read) {
         try { await api(`/notifications/${t.dataset.read}/read`, { method: 'PUT' }); refreshBadge(); } catch (err) { handleLoadError(err); }
       }
@@ -549,7 +637,8 @@
     $('#currencySelect').addEventListener('change', (e) => setDisplayCurrency(e.target.value));
 
     // Transaction form
-    $('#txForm').querySelectorAll('input[name="type"]').forEach((r) => r.addEventListener('change', () => fillTxCategories(r.value)));
+    $('#txForm').querySelectorAll('input[name="type"]').forEach((r) => r.addEventListener('change', () => { fillTxCategories(r.value); syncRecurringFields(); }));
+    ['recurring', 'frequency', 'transaction_date'].forEach((name) => $('#txForm').elements[name].addEventListener('change', syncRecurringFields));
     $('#txForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const form = e.target;
@@ -561,6 +650,7 @@
       if (Object.keys(fields).length) return showErrors(form, { fields });
       const id = d.id; delete d.id;
       d.category_id = d.category_id || null;
+      if (!d.recurring) delete d.frequency;
       submitting(form, async () => {
         await api(id ? `/transactions/${id}` : '/transactions', { method: id ? 'PUT' : 'POST', body: d });
         modal('txModal').hide();
@@ -571,17 +661,15 @@
     });
 
     // Account form
-    $('#accType').addEventListener('change', syncAccountType);
     $('#accountForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const form = e.target;
       const d = formData(form);
       const fields = {};
       if (!d.name) fields.name = 'Account name required.';
-      if (d.opening_balance !== '' && Number(d.opening_balance) < 0) fields.opening_balance = d.type === 'credit_card' ? 'Enter the amount owed as a positive number.' : 'Starting balance cannot be negative.';
+      if (d.opening_balance !== '' && Number(d.opening_balance) < 0) fields.opening_balance = 'Starting balance cannot be negative.';
       if (Object.keys(fields).length) return showErrors(form, { fields });
       const id = d.id; delete d.id;
-      if (d.type !== 'credit_card') d.due_date = null;
       submitting(form, async () => {
         await api(id ? `/accounts/${id}` : '/accounts', { method: id ? 'PUT' : 'POST', body: d });
         modal('accountModal').hide();

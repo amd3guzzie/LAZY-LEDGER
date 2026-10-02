@@ -25,7 +25,7 @@ LazyLedger helps people track income and expenses across multiple money accounts
 
 | Role | Can do |
 |---|---|
-| **Customer** | Register/login, manage accounts (cash, bank, e-wallet, savings, credit card), add/edit/delete transactions, set monthly and per-category budgets, view stats, request new categories, open support tickets, get notifications, edit profile, export CSV, delete account |
+| **Customer** | Register/login, manage accounts (cash, bank, e-wallet, savings), add/edit/delete transactions (optionally recurring), mark upcoming bills paid / not paid, set monthly and per-category budgets, view stats, request new categories, open support tickets, get notifications, edit profile, export CSV, delete account |
 | **Staff** | Approve/reject category requests, reply to and resolve support tickets, look up customer account **status** (never balances or transactions) |
 | **Admin** | System dashboard & reports, create staff/admin users, change roles, suspend/restore/delete users, manage global categories, read the append-only audit log |
 
@@ -59,6 +59,9 @@ erDiagram
     categories |o--o{ transactions : "classifies"
     users |o--o{ categories : "custom (NULL = global)"
     users ||--o{ budgets : "sets"
+    users ||--o{ recurring_transactions : "schedules"
+    accounts ||--o{ recurring_transactions : "charged to"
+    recurring_transactions |o--o{ transactions : "generates"
     categories ||--o{ budgets : "limited by"
     users ||--o{ category_requests : "submits"
     users |o--o{ category_requests : "handles"
@@ -85,9 +88,8 @@ erDiagram
         int id PK
         int user_id FK
         varchar name
-        enum type "cash | bank | e_wallet | savings | credit_card"
-        decimal opening_balance "negative for credit cards"
-        date due_date "credit cards only"
+        enum type "cash | bank | e_wallet | savings"
+        decimal opening_balance
         datetime created_at
     }
     categories {
@@ -102,10 +104,25 @@ erDiagram
         int id PK
         int account_id FK
         int category_id FK "nullable"
+        int recurring_id FK "nullable"
         enum type "income | expense"
         decimal amount "CHECK > 0"
         varchar description
         date transaction_date
+        datetime created_at
+    }
+    recurring_transactions {
+        int id PK
+        int user_id FK
+        int account_id FK
+        int category_id FK "nullable"
+        enum type "income | expense"
+        decimal amount "CHECK > 0"
+        varchar description
+        enum frequency "weekly | monthly | yearly"
+        tinyint anchor_day "day of month the series started on"
+        date next_due_date "next occurrence to resolve"
+        date reminded_for "nullable"
         datetime created_at
     }
     budgets {
@@ -157,7 +174,9 @@ erDiagram
     }
 ```
 
-Account balances are **computed** (`opening_balance + Σincome − Σexpense`), never stored, so they can't drift. Credit cards are liabilities: the amount owed is stored as a negative opening balance and card purchases make it more negative. Net worth = sum of all balances.
+Account balances are **computed** (`opening_balance + Σincome − Σexpense`), never stored, so they can't drift. Net worth = sum of all balances.
+
+Recurring bills and income live in `recurring_transactions`. Each series has one open occurrence (`next_due_date`) shown under **Coming up** on Home: **Paid / Received** records a transaction and moves to the next date, **Not paid / Not received** skips it without recording anything.
 
 ## Run locally
 

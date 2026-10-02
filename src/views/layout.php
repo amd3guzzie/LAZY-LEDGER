@@ -1,6 +1,16 @@
 <?php
 declare(strict_types=1);
 
+/** Local asset URL with its modified time appended, so browsers fetch the new file after a deploy. */
+function asset(string $path): string
+{
+    if (!str_starts_with($path, '/')) {
+        return $path;
+    }
+    $mtime = @filemtime(dirname(__DIR__, 2) . '/public' . $path);
+    return $mtime ? "$path?v=$mtime" : $path;
+}
+
 /** Shared <head> for every page. */
 function render_head(string $title): void
 {
@@ -19,7 +29,7 @@ function render_head(string $title): void
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-  <link href="/assets/css/styles.css" rel="stylesheet">
+  <link href="<?= e(asset('/assets/css/styles.css')) ?>" rel="stylesheet">
 </head>
     <?php
 }
@@ -82,7 +92,7 @@ function render_shell_end(array $scripts): void
 <?php render_common_ui(); ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <?php foreach ($scripts as $src): ?>
-<script src="<?= e($src) ?>"></script>
+<script src="<?= e(asset($src)) ?>"></script>
 <?php endforeach; ?>
 </body>
 </html>

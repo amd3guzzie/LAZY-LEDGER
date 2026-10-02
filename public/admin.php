@@ -89,7 +89,7 @@ render_shell_start($user, [
       <div class="col-md-4"><label class="visually-hidden" for="aQ">Search</label><input class="form-control border-0" type="search" id="aQ" name="q" placeholder="Search action, details or email"></div>
       <div class="col-6 col-md-2"><label class="visually-hidden" for="aRole">Role</label><select class="form-select border-0" id="aRole" name="role"><option value="">All roles</option><option value="customer">Customers</option><option value="staff">Staff</option><option value="admin">Admins</option></select></div>
       <div class="col-6 col-md-2"><label class="visually-hidden" for="aCategory">Action type</label><select class="form-select border-0" id="aCategory" name="category">
-        <option value="">All actions</option><option value="auth">Login / logout</option><option value="profile">Profile</option><option value="transaction">Transactions</option>
+        <option value="">All actions</option><option value="auth">Login / logout</option><option value="profile">Profile</option><option value="transaction">Transactions</option><option value="recurring">Recurring bills</option>
         <option value="account">Accounts</option><option value="budget">Budgets</option><option value="category_request">Category requests</option>
         <option value="ticket">Support tickets</option><option value="user">User management</option><option value="category">Global categories</option></select></div>
       <div class="col-6 col-md-2"><label class="form-label small visually-hidden" for="aFrom">From</label><input class="form-control border-0" type="date" id="aFrom" name="from" aria-label="From date"></div>

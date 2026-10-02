@@ -91,7 +91,7 @@ render_shell_start($user, [
             </div>
             <div class="onboard-step" data-step="accounts">
               <div class="step-num">2</div>
-              <div class="flex-grow-1"><p class="step-title">Add a money account</p><p class="step-sub">Cash, bank, e-wallet or credit card.</p></div>
+              <div class="flex-grow-1"><p class="step-title">Add a money account</p><p class="step-sub">Cash, bank, e-wallet or savings.</p></div>
               <button class="btn btn-ll btn-sm" data-action="add-account">Add account</button>
             </div>
             <div class="onboard-step" data-step="budgets">
@@ -142,7 +142,10 @@ render_shell_start($user, [
       </div>
       <div class="col-12">
         <div class="ll-card">
-          <h2 class="ll-card-title mb-2">Coming up</h2>
+          <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-2">
+            <h2 class="ll-card-title">Coming up</h2>
+            <span class="small text-muted-ll fw-bold">Recurring bills and income due in the next 30 days</span>
+          </div>
           <ul class="list-unstyled mb-0" id="homeUpcoming"></ul>
         </div>
       </div>
@@ -386,6 +389,20 @@ render_shell_start($user, [
           <div class="col-6"><label class="form-label" for="txAccount">Account<span class="req">*</span></label><select class="form-select" id="txAccount" name="account_id" required></select></div>
           <div class="col-6"><label class="form-label" for="txCategory">Category</label><select class="form-select" id="txCategory" name="category_id"></select></div>
         </div>
+        <div class="recurring-box mt-3">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="txRecurring" name="recurring" aria-describedby="txRecurringHelp">
+            <label class="form-check-label fw-800 text-terracotta" for="txRecurring"><i class="bi bi-arrow-repeat"></i> Recurring <span id="txRecurringKind">expense</span></label>
+          </div>
+          <div class="form-text mt-0" id="txRecurringHelp">Bills, subscriptions or salary that come back on a schedule. They show up under “Coming up” on Home to mark as paid or not paid.</div>
+          <div class="mt-2" id="txFrequencyWrap" hidden>
+            <label class="form-label" for="txFrequency">Repeats<span class="req">*</span></label>
+            <select class="form-select" id="txFrequency" name="frequency">
+              <option value="monthly">Every month</option><option value="weekly">Every week</option><option value="yearly">Every year</option>
+            </select>
+            <div class="form-text" id="txNextDue"></div>
+          </div>
+        </div>
       </div>
       <div class="modal-footer"><button type="button" class="btn btn-ll-outline" data-bs-dismiss="modal">Cancel</button><button class="btn btn-ll" type="submit">Save</button></div>
     </form>
@@ -402,10 +419,9 @@ render_shell_start($user, [
         <div class="mb-2"><label class="form-label" for="accName">Account name<span class="req">*</span></label><input class="form-control" id="accName" name="name" maxlength="80" required placeholder="e.g. BPI Savings, GCash"></div>
         <div class="mb-2"><label class="form-label" for="accType">Type<span class="req">*</span></label>
           <select class="form-select" id="accType" name="type" required>
-            <option value="cash">Cash</option><option value="bank">Bank</option><option value="e_wallet">E-wallet</option><option value="savings">Savings</option><option value="credit_card">Credit card</option>
+            <option value="cash">Cash</option><option value="bank">Bank</option><option value="e_wallet">E-wallet</option><option value="savings">Savings</option>
           </select></div>
-        <div class="mb-2"><label class="form-label" for="accOpening" id="accOpeningLabel">Starting balance</label><input class="form-control" type="number" id="accOpening" name="opening_balance" min="0" step="0.01" value="0" inputmode="decimal"></div>
-        <div class="mb-2" id="accDueWrap" hidden><label class="form-label" for="accDue">Payment due date</label><input class="form-control" type="date" id="accDue" name="due_date"></div>
+        <div class="mb-2"><label class="form-label" for="accOpening">Starting balance (<span data-cur-symbol></span>)</label><input class="form-control" type="number" id="accOpening" name="opening_balance" min="0" step="0.01" value="0" inputmode="decimal"></div>
       </div>
       <div class="modal-footer justify-content-between">
         <button type="button" class="btn btn-outline-danger fw-bold" id="accDelete" hidden>Delete</button>

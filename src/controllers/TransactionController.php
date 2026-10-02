@@ -13,10 +13,12 @@ final class TransactionController
     ];
 
     private const SELECT = 'SELECT t.id, t.type, t.amount, t.description, t.transaction_date, t.created_at,
-                                   t.account_id, a.name AS account_name, t.category_id, c.name AS category_name
+                                   t.account_id, a.name AS account_name, t.category_id, c.name AS category_name,
+                                   r.id AS recurring_id, r.frequency, r.next_due_date
                             FROM transactions t
                             JOIN accounts a ON a.id = t.account_id
-                            LEFT JOIN categories c ON c.id = t.category_id';
+                            LEFT JOIN categories c ON c.id = t.category_id
+                            LEFT JOIN recurring_transactions r ON r.id = t.recurring_id';
 
     public static function index(): array
     {
@@ -57,6 +59,7 @@ final class TransactionController
         );
         $tx = self::find((int) db()->lastInsertId(), (int) $user['id']);
         audit((int) $user['id'], 'transaction.create', 'transaction', $tx['id'], self::describe($tx));
+        $tx = self::syncRecurring((int) $user['id'], $tx, $data);
         self::maybeAlertBudget($user, $tx);
         return ['data' => $tx];
     }
@@ -73,7 +76,7 @@ final class TransactionController
         );
         $tx = self::find($id, (int) $user['id']);
         audit((int) $user['id'], 'transaction.update', 'transaction', $id, self::describe($before) . ' → ' . self::describe($tx));
-        return ['data' => $tx];
+        return ['data' => self::syncRecurring((int) $user['id'], $tx, $data)];
     }
 
     public static function destroy(int $id): array
@@ -174,6 +177,9 @@ final class TransactionController
         if ($date && $date > date('Y-m-d', strtotime('+1 year'))) {
             $v->error('transaction_date', 'Date is too far in the future.');
         }
+        // Omitting "recurring" leaves an existing series untouched (null); true / false starts or stops one.
+        $recurring = array_key_exists('recurring', $body) ? $v->bool('recurring') : null;
+        $frequency = $recurring ? $v->enum('frequency', 'Repeats', RecurringController::FREQUENCIES) : null;
         $v->done();
 
         if (!q_val('SELECT 1 FROM accounts WHERE id = ? AND user_id = ?', [$accountId, $userId])) {
@@ -189,11 +195,24 @@ final class TransactionController
             'transaction_date' => $date,
             'account_id' => $accountId,
             'category_id' => $categoryId,
+            'recurring' => $recurring,
+            'frequency' => $frequency,
         ];
     }
 
+    /** Start, update or stop the transaction's recurring series, then return the fresh transaction. */
+    private static function syncRecurring(int $userId, array $tx, array $data): array
+    {
+        $before = $tx['recurring_id'];
+        $seriesId = RecurringController::syncFromTransaction($userId, $tx, $data['recurring'], $data['frequency']);
+        if ($seriesId !== $before && $seriesId !== null) {
+            q('UPDATE transactions SET recurring_id = ? WHERE id = ?', [$seriesId, $tx['id']]);
+        }
+        return self::find($tx['id'], $userId);
+    }
+
     /** Notify the user once a category crosses 90% / 100% of its budget for the month. */
-    private static function maybeAlertBudget(array $user, array $tx): void
+    public static function maybeAlertBudget(array $user, array $tx): void
     {
         if ($tx['type'] !== 'expense' || !$tx['category_id'] || !$user['budget_alerts']) {
             return;
@@ -247,6 +266,9 @@ final class TransactionController
             'account_name' => $r['account_name'],
             'category_id' => $r['category_id'] !== null ? (int) $r['category_id'] : null,
             'category_name' => $r['category_name'],
+            'recurring_id' => $r['recurring_id'] !== null ? (int) $r['recurring_id'] : null,
+            'frequency' => $r['frequency'],
+            'next_due_date' => $r['next_due_date'],
             'created_at' => $r['created_at'],
         ];
     }
