@@ -77,6 +77,11 @@ $r->post('/transactions', [TransactionController::class, 'store']);
 $r->put('/transactions/{id}', [TransactionController::class, 'update']);
 $r->delete('/transactions/{id}', [TransactionController::class, 'destroy']);
 
+$r->get('/recurring', [RecurringController::class, 'index']);
+$r->post('/recurring/{id}/pay', [RecurringController::class, 'pay']);
+$r->post('/recurring/{id}/skip', [RecurringController::class, 'skip']);
+$r->delete('/recurring/{id}', [RecurringController::class, 'destroy']);
+
 $r->get('/budgets', [BudgetController::class, 'index']);
 $r->post('/budgets', [BudgetController::class, 'store']);
 $r->put('/budgets/total', [BudgetController::class, 'setTotal']);

@@ -27,9 +27,8 @@ CREATE TABLE IF NOT EXISTS accounts (
     id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id          INT UNSIGNED NOT NULL,
     name             VARCHAR(80) NOT NULL,
-    type             ENUM('cash','bank','e_wallet','savings','credit_card') NOT NULL DEFAULT 'cash',
+    type             ENUM('cash','bank','e_wallet','savings') NOT NULL DEFAULT 'cash',
     opening_balance  DECIMAL(12,2) NOT NULL DEFAULT 0,
-    due_date         DATE NULL,
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_accounts_user (user_id),
     CONSTRAINT fk_accounts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -46,10 +45,33 @@ CREATE TABLE IF NOT EXISTS categories (
     CONSTRAINT fk_categories_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- A repeating income or expense (rent, subscriptions, salary). next_due_date is the next occurrence
+-- the user still has to resolve: "paid" records a transaction, "not paid" skips it; both move it forward.
+CREATE TABLE IF NOT EXISTS recurring_transactions (
+    id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id        INT UNSIGNED NOT NULL,
+    account_id     INT UNSIGNED NOT NULL,
+    category_id    INT UNSIGNED NULL,
+    type           ENUM('income','expense') NOT NULL,
+    amount         DECIMAL(12,2) NOT NULL,
+    description    VARCHAR(120) NOT NULL,
+    frequency      ENUM('weekly','monthly','yearly') NOT NULL DEFAULT 'monthly',
+    anchor_day     TINYINT UNSIGNED NOT NULL,   -- day of month the series started on, so Jan 31 -> Feb 28 -> Mar 31
+    next_due_date  DATE NOT NULL,
+    reminded_for   DATE NULL,                   -- next_due_date we already sent a bill reminder for
+    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_recurring_due (user_id, next_due_date),
+    CONSTRAINT chk_recurring_amount_positive CHECK (amount > 0),
+    CONSTRAINT fk_recurring_user     FOREIGN KEY (user_id)     REFERENCES users(id)      ON DELETE CASCADE,
+    CONSTRAINT fk_recurring_account  FOREIGN KEY (account_id)  REFERENCES accounts(id)   ON DELETE CASCADE,
+    CONSTRAINT fk_recurring_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS transactions (
     id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     account_id        INT UNSIGNED NOT NULL,
     category_id       INT UNSIGNED NULL,
+    recurring_id      INT UNSIGNED NULL,          -- set when created by / for a recurring series
     type              ENUM('income','expense') NOT NULL,
     amount            DECIMAL(12,2) NOT NULL,
     description       VARCHAR(120) NOT NULL,
@@ -59,7 +81,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     KEY idx_tx_category (category_id),
     CONSTRAINT chk_tx_amount_positive CHECK (amount > 0),
     CONSTRAINT fk_tx_account  FOREIGN KEY (account_id)  REFERENCES accounts(id)   ON DELETE CASCADE,
-    CONSTRAINT fk_tx_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+    CONSTRAINT fk_tx_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    CONSTRAINT fk_tx_recurring FOREIGN KEY (recurring_id) REFERENCES recurring_transactions(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS budgets (

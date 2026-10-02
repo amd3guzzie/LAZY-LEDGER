@@ -46,6 +46,7 @@ $columns = [
     ['users', 'currency', "CHAR(3) NOT NULL DEFAULT 'PHP' AFTER gender"],
     ['users', 'privacy_consent_at', 'DATETIME NULL AFTER bill_reminders'],
     ['users', 'tour_completed_at', 'DATETIME NULL AFTER privacy_consent_at'],
+    ['transactions', 'recurring_id', 'INT UNSIGNED NULL AFTER category_id'],
 ];
 foreach ($columns as [$table, $column, $definition]) {
     $exists = q_val(
@@ -56,6 +57,27 @@ foreach ($columns as [$table, $column, $definition]) {
         $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
         out("Added column $table.$column");
     }
+}
+if (!q_val(
+    "SELECT 1 FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'transactions' AND CONSTRAINT_NAME = 'fk_tx_recurring'"
+)) {
+    $pdo->exec('ALTER TABLE transactions ADD CONSTRAINT fk_tx_recurring FOREIGN KEY (recurring_id) REFERENCES recurring_transactions(id) ON DELETE SET NULL');
+    out('Added foreign key transactions.recurring_id');
+}
+
+// Credit card accounts were removed: existing ones become bank accounts (balances unchanged),
+// then the type and the card-only due date column are dropped.
+$accountType = (string) q_val(
+    "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'accounts' AND COLUMN_NAME = 'type'"
+);
+if (str_contains($accountType, 'credit_card')) {
+    $converted = $pdo->exec("UPDATE accounts SET type = 'bank' WHERE type = 'credit_card'");
+    $pdo->exec("ALTER TABLE accounts MODIFY COLUMN type ENUM('cash','bank','e_wallet','savings') NOT NULL DEFAULT 'cash'");
+    out("Removed the credit card account type ($converted account(s) converted to bank)");
+}
+if (q_val("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'accounts' AND COLUMN_NAME = 'due_date'")) {
+    $pdo->exec('ALTER TABLE accounts DROP COLUMN due_date');
+    out('Dropped column accounts.due_date');
 }
 out('Schema is up to date.');
 
@@ -101,7 +123,6 @@ foreach ($seeds as [$role, $email, $password, $first, $last]) {
 // 4. Demo data for the demo customer: accounts, six months of transactions, this month's budgets.
 if ($customerId) {
     $cat = fn(string $name) => (int) q_val('SELECT id FROM categories WHERE is_global = 1 AND name = ?', [$name]);
-    $nextDue = (new DateTimeImmutable('first day of next month'))->modify('+4 days')->format('Y-m-d');
 
     q('INSERT INTO accounts (user_id, name, type, opening_balance) VALUES (?, ?, ?, ?)', [$customerId, 'Cash', 'cash', 2000]);
     $cash = (int) $pdo->lastInsertId();
@@ -109,7 +130,7 @@ if ($customerId) {
     $bdo = (int) $pdo->lastInsertId();
     q('INSERT INTO accounts (user_id, name, type, opening_balance) VALUES (?, ?, ?, ?)', [$customerId, 'GCash', 'e_wallet', 500]);
     $gcash = (int) $pdo->lastInsertId();
-    q('INSERT INTO accounts (user_id, name, type, opening_balance, due_date) VALUES (?, ?, ?, ?, ?)', [$customerId, 'Credit Card', 'credit_card', 0, $nextDue]);
+    q('INSERT INTO accounts (user_id, name, type, opening_balance) VALUES (?, ?, ?, ?)', [$customerId, 'Maya', 'e_wallet', 1500]);
     $card = (int) $pdo->lastInsertId();
 
     mt_srand(122);
@@ -159,6 +180,19 @@ if ($customerId) {
         );
     }
     q('UPDATE users SET monthly_budget = 30000 WHERE id = ?', [$customerId]);
+    // Recurring bills, due soon so "Coming up" on Home has something to resolve.
+    foreach ([
+        [$bdo, 'Rents and bills', 10200, 'Rent & utilities', 3],
+        [$card, 'Entertainment', 549, 'Netflix', 6],
+        [$gcash, 'Entertainment', 149, 'Spotify', 12],
+    ] as [$account, $category, $amount, $description, $inDays]) {
+        $due = $today->modify("+$inDays days");
+        q(
+            'INSERT INTO recurring_transactions (user_id, account_id, category_id, type, amount, description, frequency, anchor_day, next_due_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$customerId, $account, $cat($category), 'expense', $amount, $description, 'monthly', (int) $due->format('j'), $due->format('Y-m-d')]
+        );
+    }
     q('INSERT INTO category_requests (user_id, requested_name, requested_type, reason) VALUES (?, ?, ?, ?)',
         [$customerId, 'Pet Supplies', 'expense', 'I buy food and litter for my cat every month.']);
     q('INSERT INTO support_tickets (user_id, subject, message) VALUES (?, ?, ?)',

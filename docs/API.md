@@ -36,22 +36,26 @@ Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 | Method | Path | Body / query |
 |---|---|---|
 | GET | `/accounts` | → accounts with computed `balance`, plus `net_worth` |
-| POST | `/accounts` | `name, type (cash\|bank\|e_wallet\|savings\|credit_card), opening_balance ≥ 0, due_date?` |
+| POST | `/accounts` | `name, type (cash\|bank\|e_wallet\|savings), opening_balance ≥ 0` |
 | PUT | `/accounts/{id}` | same as POST |
 | DELETE | `/accounts/{id}` | deletes the account and its transactions |
 | GET | `/categories` | global + own custom categories |
 | GET | `/transactions` | `q, type, category_id (id or "none"), account_id, from, to, sort (date\|amount\|description\|category\|account), dir (asc\|desc), page, per_page` |
 | GET | `/transactions/{id}` | — |
-| POST | `/transactions` | `type (income\|expense), amount > 0, description, transaction_date (YYYY-MM-DD), account_id, category_id?` |
-| PUT | `/transactions/{id}` | same as POST |
+| POST | `/transactions` | `type (income\|expense), amount > 0, description, transaction_date (YYYY-MM-DD), account_id, category_id?, recurring?, frequency? (weekly\|monthly\|yearly, required when recurring is true)`. `recurring: true` also starts a series whose first due date is the next occurrence after `transaction_date` (today or later). Response includes `recurring_id`, `frequency`, `next_due_date`. |
+| PUT | `/transactions/{id}` | same as POST. `recurring: true` updates the series (future occurrences); `false` stops it; omitted leaves it unchanged. |
 | DELETE | `/transactions/{id}` | — |
 | GET | `/transactions/export` | same filters as list → CSV download |
+| GET | `/recurring` | recurring series with `next_due_date`, `overdue` |
+| POST | `/recurring/{id}/pay` | `amount?, date?` (defaults: series amount, today). Records the transaction and moves to the next due date. |
+| POST | `/recurring/{id}/skip` | Marks the current occurrence not paid / not received: nothing recorded, moves to the next due date. |
+| DELETE | `/recurring/{id}` | Stops repeating; recorded transactions are kept. |
 | GET | `/budgets?month=YYYY-MM` | budgets with `spent`, `pct`, plus summary (`budgeted`, `spent`, `unassigned`) |
 | POST | `/budgets` | `category_id (expense), amount_limit > 0, month?` |
 | PUT | `/budgets/{id}` | `amount_limit` |
 | DELETE | `/budgets/{id}` | — |
 | PUT | `/budgets/total` | `monthly_budget` (number or `null`) |
-| GET | `/stats/summary?month=YYYY-MM` | left to spend, income/expense (+% vs last month), budgets, alerts, category breakdown, recent transactions, upcoming credit card bills, onboarding counts |
+| GET | `/stats/summary?month=YYYY-MM` | left to spend, income/expense (+% vs last month), budgets, alerts, category breakdown, recent transactions, `upcoming` recurring bills/income due within 30 days (overdue included; also sends bill reminders 3 days ahead when enabled), onboarding counts |
 | GET | `/stats/monthly?months=3\|6\|12` | income, expense, net per month |
 | GET | `/stats/categories?month=YYYY-MM` | spending per category with share % |
 | GET | `/category-requests` | own requests |
