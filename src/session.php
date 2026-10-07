@@ -28,7 +28,7 @@ function start_session(): void
 
     // Idle timeout: 2 hours.
     $now = time();
-    if (isset($_SESSION['last_seen']) && $now - $_SESSION['last_seen'] > 2) {
+    if (isset($_SESSION['last_seen']) && $now - $_SESSION['last_seen'] > 7200) {
         $_SESSION = [];
         session_regenerate_id(true);
     }
