@@ -25,7 +25,7 @@ render_shell_start($user, [
     <div class="d-flex flex-wrap align-items-center gap-2">
       <div class="btn-group" role="group" aria-label="Month" id="monthNav">
         <button class="btn btn-ll-outline btn-sm" id="prevMonth" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
-        <span class="btn btn-ll-outline btn-sm disabled fw-800" id="monthLabel" style="min-width:9.5rem"></span>
+        <span class="btn btn-ll-outline btn-sm fw-800" id="monthLabel" style="min-width:9.5rem"></span>
         <button class="btn btn-ll-outline btn-sm" id="nextMonth" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
       </div>
       <label class="visually-hidden" for="currencySelect">Display currency</label>
