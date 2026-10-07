@@ -181,94 +181,32 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Digits only in the code box.
-// Formatting and restrictions
-resetForm.elements.code.addEventListener('input', (e) => { 
-  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); 
-});
+  resetForm.elements.code.addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
 resetForm.elements.confirm_password.addEventListener('paste', (e) => e.preventDefault());
 
-// Real-time password strength meter for Reset Form
-const resetPassword = document.getElementById('resetPassword');
-const resetPwHelp = document.getElementById('resetPwHelp');
-
-resetPassword.addEventListener('input', (e) => {
-  const val = e.target.value;
-  if (!val) {
-    resetPwHelp.textContent = 'At least 8 characters, with a letter and a number.';
-    resetPwHelp.className = 'form-text';
-    return;
-  }
-  
-  const hasLetter = /[A-Za-z]/.test(val);
-  const hasNumber = /\d/.test(val);
-  const hasSpecial = /[^A-Za-z0-9]/.test(val);
-  
-  if (val.length < 8 || !hasLetter || !hasNumber) {
-    resetPwHelp.textContent = 'Strength: Weak (Needs 8+ chars, letter & number)';
-    resetPwHelp.className = 'form-text text-danger fw-bold';
-  } else if (val.length >= 10 && hasSpecial) {
-    resetPwHelp.textContent = 'Strength: Strong';
-    resetPwHelp.className = 'form-text text-success fw-bold';
-  } else {
-    resetPwHelp.textContent = 'Strength: Fair';
-    resetPwHelp.className = 'form-text text-warning fw-bold';
-  }
-});
-
-// Validate individual fields on blur for Reset Form
-const validateResetField = (input) => {
-  const name = input.name;
-  const val = input.value.trim();
-  let err = null;
-  
-  if (name === 'code') {
-    if (!/^\d{6}$/.test(val)) err = 'Enter the 6-digit code from the email.';
-  } else if (name === 'password') {
-    if (!val) err = 'Password is required.';
-    else if (val.length < 8 || !/[A-Za-z]/.test(val) || !/\d/.test(val)) err = 'At least 8 characters, with a letter and a number.';
-  } else if (name === 'confirm_password') {
-    const pw = resetForm.elements.password.value;
-    if (!val) err = 'Please confirm your password.';
-    else if (val !== pw) err = 'Passwords do not match.';
-  }
-  
-  showInlineError(input, err);
-};
-
-// Prevent submit button mousedown from hiding errors immediately
-resetForm.querySelector('[type="submit"]').addEventListener('mousedown', (e) => e.preventDefault());
-
-// Attach the blur validation to all inputs in the reset form
-Array.from(resetForm.elements).forEach(el => {
-  if (el.tagName === 'INPUT') {
-    el.addEventListener('blur', () => validateResetField(el));
-  }
-});
-
-// Final validation block on form submission
 resetForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const data = {
-    email: resetEmail, // Assumes resetEmail is defined in your outer scope
+    email: resetEmail,
     code: resetForm.elements.code.value.trim(),
     password: resetForm.elements.password.value,
     confirm_password: resetForm.elements.confirm_password.value,
   };
   const fields = {};
 
-  // Final Code validation
+  // Code validation
   if (!/^\d{6}$/.test(data.code)) {
     fields.code = 'Enter the 6-digit code from the email.';
   }
 
-  // Final Password validation
+  // Password validation
   if (!data.password) {
     fields.password = 'Password is required.';
   } else if (data.password.length < 8 || !/[A-Za-z]/.test(data.password) || !/\d/.test(data.password)) {
     fields.password = 'At least 8 characters, with a letter and a number.';
   }
 
-  // Final Confirm password validation
+  // Confirm password validation
   if (!data.confirm_password) {
     fields.confirm_password = 'Please confirm your password.';
   } else if (data.confirm_password !== data.password) {
