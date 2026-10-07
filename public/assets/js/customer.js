@@ -48,43 +48,58 @@
 
   // ---------- Home ----------
   async function loadHome() {
-    $('#monthLabel').textContent = LL.monthLabel(state.month);
-    $('#nextMonth').disabled = state.month >= LL.monthKey();
-    const s = await api('/stats/summary', { query: { month: state.month } });
-    state.summary = s;
+  $('#monthLabel').textContent = LL.monthLabel(state.month);
+  $('#nextMonth').disabled = state.month >= LL.monthKey();
+  const s = await api('/stats/summary', { query: { month: state.month } });
+  state.summary = s;
 
-    // New users get the checklist; the budget card stays visible for everyone because it's the focal point.
-    const isNew = s.counts.transactions === 0;
-    $('#onboarding').hidden = !isNew;
-    $('#homeMain').hidden = isNew;
-    if (isNew) {
-      ['accounts', 'budgets', 'transactions'].forEach((k) => {
-        const step = document.querySelector(`[data-step="${k}"] .step-num`);
-        step.classList.toggle('done', s.counts[k] > 0);
-        if (s.counts[k] > 0) step.innerHTML = '<i class="bi bi-check-lg"></i>';
-      });
+  const isNew = s.counts.transactions === 0;
+  $('#onboarding').hidden = !isNew;
+  $('#homeMain').hidden = isNew;
+  
+  if (isNew) {
+    let allDone = true;
+    ['accounts', 'budgets', 'transactions'].forEach((k) => {
+      const step = document.querySelector(`[data-step="${k}"] .step-num`);
+      const isStepDone = s.counts[k] > 0;
+      step.classList.toggle('done', isStepDone);
+      if (isStepDone) {
+        step.innerHTML = '<i class="bi bi-check-lg"></i>';
+      } else {
+        allDone = false;
+      }
+    });
+
+    if (allDone) {
+      const checklistBtn = document.querySelector('#checklistBtn') || document.querySelector('#onboarding button');
+      if (checklistBtn) {
+        checklistBtn.innerHTML = '<i class="bi bi-check2-all"></i> Done';
+        checklistBtn.classList.replace('btn-primary', 'btn-success');
+      }
     }
-    renderBudgetHero(s);
-
-    $('#alertBox').innerHTML = s.alerts.length
-      ? html`<div class="alert alert-ll d-flex gap-2 align-items-start" role="alert"><i class="bi bi-exclamation-triangle-fill"></i><div>${s.alerts.map((a) => raw(html`<div>${a.category_name}: ${a.pct > 100 ? 'over budget' : 'almost at its limit'} (${money(a.spent)} of ${money(a.amount_limit)})</div>`))}</div></div>`
-      : '';
-    if (isNew) return;
-
-    $('#incomeTotal').textContent = money(s.income);
-    $('#expenseTotal').textContent = money(s.expense);
-    setChange($('#incomeChange'), s.income_change, true);
-    setChange($('#expenseChange'), s.expense_change, false);
-
-    $('#homeRecent').innerHTML = s.recent.length
-      ? s.recent.map((t) => html`<tr><td>${t.description}<div class="small text-muted-ll fw-normal">${fmtDate(t.transaction_date)} · ${t.category_name || 'Uncategorized'}</div></td>
-          <td class="text-end amount ${t.type === 'income' ? 'text-income' : 'text-expense'}">${t.type === 'income' ? '+' : '-'}${money(t.amount)}</td></tr>`).join('')
-      : html`<tr><td colspan="2" class="empty-hint">No transactions yet.</td></tr>`;
-
-    renderUpcoming(s.upcoming);
-
-    renderDonut(s.breakdown);
   }
+  
+  renderBudgetHero(s);
+
+  $('#alertBox').innerHTML = s.alerts.length
+    ? html`<div class="alert alert-ll d-flex gap-2 align-items-start" role="alert"><i class="bi bi-exclamation-triangle-fill"></i><div>${s.alerts.map((a) => raw(html`<div>${a.category_name}:${a.pct > 100 ? 'over budget' : 'almost at its limit'} (${money(a.spent)} of${money(a.amount_limit)})</div>`))}</div></div>`
+    : '';
+    
+  if (isNew) return;
+
+  $('#incomeTotal').textContent = money(s.income);
+  $('#expenseTotal').textContent = money(s.expense);
+  setChange($('#incomeChange'), s.income_change, true);
+  setChange($('#expenseChange'), s.expense_change, false);
+
+  $('#homeRecent').innerHTML = s.recent.length
+    ? s.recent.map((t) => html`<tr><td>${t.description}<div class="small text-muted-ll fw-normal">${fmtDate(t.transaction_date)} · ${t.category_name || 'Uncategorized'}</div></td>
+        <td class="text-end amount ${t.type === 'income' ? 'text-income' : 'text-expense'}">${t.type === 'income' ? '+' : '-'}${money(t.amount)}</td></tr>`).join('')
+    : html`<tr><td colspan="2" class="empty-hint">No transactions yet.</td></tr>`;
+
+  renderUpcoming(s.upcoming);
+  renderDonut(s.breakdown);
+}
 
   /** Recurring bills and income due soon, each resolved as paid / not paid (received / not received for income). */
   function renderUpcoming(items) {
