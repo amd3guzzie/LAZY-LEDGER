@@ -48,27 +48,27 @@
 
   // ---------- Home ----------
   async function loadHome() {
-    $('#monthLabel').textContent = LL.monthLabel(state.month);
-    $('#nextMonth').disabled = state.month >= LL.monthKey();
-    const s = await api('/stats/summary', { query: { month: state.month } });
-    state.summary = s;
+  $('#monthLabel').textContent = LL.monthLabel(state.month);
+  $('#nextMonth').disabled = state.month >= LL.monthKey();
+  const s = await api('/stats/summary', { query: { month: state.month } });
+  state.summary = s;
 
-    const isNew = s.counts.transactions === 0;
-    $('#onboarding').hidden = !isNew;
-    $('#homeMain').hidden = isNew;
-    
-    if (isNew) {
-      let allDone = true;
-      ['accounts', 'budgets', 'transactions'].forEach((k) => {
-        const step = document.querySelector(`[data-step="${k}"] .step-num`);
-        const isStepDone = s.counts[k] > 0;
-        step.classList.toggle('done', isStepDone);
-        if (isStepDone) {
-          step.innerHTML = '<i class="bi bi-check-lg"></i>';
-        } else {
-          allDone = false;
-        }
-      });
+  const isNew = s.counts.transactions === 0;
+  $('#onboarding').hidden = !isNew;
+  $('#homeMain').hidden = isNew;
+  
+  if (isNew) {
+    let allDone = true;
+    ['accounts', 'budgets', 'transactions'].forEach((k) => {
+      const step = document.querySelector(`[data-step="${k}"] .step-num`);
+      const isStepDone = s.counts[k] > 0;
+      step.classList.toggle('done', isStepDone);
+      if (isStepDone) {
+        step.innerHTML = '<i class="bi bi-check-lg"></i>';
+      } else {
+        allDone = false;
+      }
+    });
 
     if (allDone) {
       const checklistBtn = document.querySelector('#checklistBtn') || document.querySelector('#onboarding button');

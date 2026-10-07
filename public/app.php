@@ -22,25 +22,20 @@ render_shell_start($user, [
 <section class="view" data-view="home" aria-labelledby="homeTitle">
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h1 class="page-title" id="homeTitle">Home</h1>
-    <div class="d-flex flex-wrap align-items-stretch gap-2">
+    <div class="d-flex flex-wrap align-items-center gap-2">
       <div class="btn-group" role="group" aria-label="Month" id="monthNav">
-        <button class="btn btn-outline-secondary btn-sm" id="prevMonth" aria-label="Previous month">
-        <i class="bi bi-chevron-left"></i>
-        </button>
-        <span class="btn btn-outline-secondary btn-sm disabled fw-800 d-flex align-items-center justify-content-center" id="monthLabel" style="min-width:9.5rem"></span>
-        <button class="btn btn-outline-secondary btn-sm" id="nextMonth" aria-label="Next month">
-          <i class="bi bi-chevron-right"></i>
-        </button>
+        <button class="btn btn-ll-outline btn-sm" id="prevMonth" aria-label="Previous month"><i class="bi bi-chevron-left"></i></button>
+        <span class="btn btn-ll-outline btn-sm disabled fw-800" id="monthLabel" style="min-width:9.5rem"></span>
+        <button class="btn btn-ll-outline btn-sm" id="nextMonth" aria-label="Next month"><i class="bi bi-chevron-right"></i></button>
+      </div>
+      <label class="visually-hidden" for="currencySelect">Display currency</label>
+      <select class="form-select form-select-sm currency-select" id="currencySelect" title="Live rates from the Frankfurter API">
+        <?php foreach (CURRENCIES as $code => $label): ?>
+          <option value="<?= e($code) ?>"<?= $code === $currency ? ' selected' : '' ?>><?= e($code === $currency ? "$code (your currency)" : "$code — $label") ?></option>
+        <?php endforeach; ?>
+      </select>
+      <button class="btn btn-ll-outline btn-sm" type="button" data-action="tour" aria-label="Take the dashboard tour" title="Take the dashboard tour"><i class="bi bi-question-circle-fill"></i> Tour</button>
     </div>
-    <label class="visually-hidden" for="currencySelect">Display currency</label>
-    <select class="form-select form-select-sm currency-select" id="currencySelect" title="Live rates from the Frankfurter API">
-      <?php foreach (CURRENCIES as $code => $label): ?>
-        <option value="<?= e($code) ?>"<?= $code === $currency ? ' selected' : '' ?>><?= e($code === $currency ? "$code (your currency)" : "$code — $label") ?></option>
-      <?php endforeach; ?>
-    </select>
-    <button class="btn btn-ll-outline btn-sm" type="button" data-action="tour" aria-label="Take the dashboard tour" title="Take the dashboard tour">
-      <i class="bi bi-question-circle-fill"></i> Tour
-    </button>
   </div>
   <p class="small fw-bold text-muted-ll mb-2" id="rateNote" hidden></p>
 
