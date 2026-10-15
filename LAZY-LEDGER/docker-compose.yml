@@ -1,0 +1,32 @@
+# Local development: `docker compose up --build` then open http://localhost:8080
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT:-8080}:8080"   # set APP_PORT if 8080 is taken
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: 8080
+      MYSQLHOST: db
+      MYSQLPORT: 3306
+      MYSQLUSER: lazyledger
+      MYSQLPASSWORD: lazyledger
+      MYSQLDATABASE: lazyledger
+      APP_ENV: development
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: lazyledger
+      MYSQL_USER: lazyledger
+      MYSQL_PASSWORD: lazyledger
+    volumes:
+      - dbdata:/var/lib/mysql
+
+volumes:
+  dbdata:
