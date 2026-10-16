@@ -60,6 +60,7 @@ render_head('Lazy Ledger');
       <?php if ($user): ?>
         <a class="nav-item-link" href="<?= e(home_for_role($user['role'])) ?>">Dashboard</a>
       <?php else: ?>
+        <a class="nav-item-link" href="#login" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
         <a class="btn btn-ll btn-sm" href="#signup" data-bs-toggle="modal" data-bs-target="#signupModal">Sign up free</a>
       <?php endif; ?>
     </div>
@@ -86,7 +87,6 @@ render_head('Lazy Ledger');
           <a class="btn btn-ll btn-lg" href="<?= e(home_for_role($user['role'])) ?>">Go to dashboard <i class="bi bi-chevron-right"></i></a>
         <?php else: ?>
           <button class="btn btn-ll btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#signupModal">Sign up free <i class="bi bi-chevron-right"></i></button>
-          <button class="btn btn-ll-outline btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#loginModal">Login</button>
         <?php endif; ?>
       </div>
     </div>
