@@ -267,3 +267,22 @@ body.tour-open { padding-bottom: 60vh; }
 .upcoming-row .due { font-size: .85rem; font-weight: 700; }
 .upcoming-row .actions { display: flex; gap: .35rem; align-items: center; }
 .recurring-icon { color: var(--ll-terracotta); font-size: .85em; }
+
+/* Landing page benefit list */
+.benefit-list li { font-size: 1.15rem; font-weight: 700; margin-bottom: .35rem; }
+.benefit-list .bi { color: var(--ll-green); margin-right: .4rem; }
+
+/* Login instructions box */
+.login-instructions { background: #fff8e1; border: 2px solid var(--ll-yellow-dark); border-radius: var(--ll-radius); padding: .75rem 1rem; font-size: .9rem; margin-bottom: 1rem; }
+.login-instructions ul { margin: .25rem 0 0; padding-left: 1.1rem; }
+
+/* Enlarged icons (revision #13): bigger icons, same layout. Remove this block to go back to the old sizes. */
+.side-nav i { font-size: 1.6rem; width: 2rem; }
+.logout-btn .bi { font-size: 1.6rem; }
+.btn .bi, .btn-icon .bi { font-size: 1.2em; vertical-align: -.15em; }
+.btn-icon { padding: .3rem .5rem; }
+.hamburger img { width: 52px; height: 52px; }
+.add-tile i { font-size: 3.2rem; }
+.feature-card img { width: 130px; height: 130px; }
+.empty-hint img { width: 140px; height: 140px; }
+.benefit-list .bi { font-size: 1.35rem; vertical-align: -.2em; }

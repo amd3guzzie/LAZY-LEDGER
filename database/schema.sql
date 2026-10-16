@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash   VARCHAR(255) NOT NULL,
     role            ENUM('customer','staff','admin') NOT NULL DEFAULT 'customer',
     status          ENUM('active','suspended')       NOT NULL DEFAULT 'active',
+    email_verified  TINYINT(1) NOT NULL DEFAULT 1,
     birth_date      DATE NULL,
     gender          ENUM('male','female','non_binary','prefer_not_to_say') NULL,
     currency        CHAR(3) NOT NULL DEFAULT 'PHP',  -- every amount this user stores is in this currency
@@ -164,4 +165,43 @@ CREATE TABLE IF NOT EXISTS password_resets (
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_resets_user (user_id, created_at),
     CONSTRAINT fk_resets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One review per customer; customers can edit their review later.
+CREATE TABLE IF NOT EXISTS reviews (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT UNSIGNED NOT NULL,
+    rating      TINYINT UNSIGNED NOT NULL,
+    comment     VARCHAR(500) NOT NULL,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_reviews_user (user_id),
+    CONSTRAINT chk_review_rating CHECK (rating BETWEEN 1 AND 5),
+    CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One row per visit, throttled by browser session in the application.
+CREATE TABLE IF NOT EXISTS visitors (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ip_address  VARCHAR(45) NOT NULL,
+    user_agent  VARCHAR(255) NOT NULL DEFAULT '',
+    page        VARCHAR(190) NOT NULL DEFAULT '/',
+    action      VARCHAR(120) NOT NULL DEFAULT 'Viewed page',
+    user_id     INT UNSIGNED NULL,
+    visited_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_visitors_time (visited_at),
+    KEY idx_visitors_ip (ip_address),
+    CONSTRAINT fk_visitors_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_verifications (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT UNSIGNED NOT NULL,
+    token_hash  CHAR(64) NOT NULL,
+    expires_at  DATETIME NOT NULL,
+    used_at     DATETIME NULL,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_verif_token (token_hash),
+    KEY idx_verif_user (user_id, created_at),
+    CONSTRAINT fk_verif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

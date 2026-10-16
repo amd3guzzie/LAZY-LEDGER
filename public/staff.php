@@ -3,8 +3,10 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/src/auth.php';
 require_once dirname(__DIR__) . '/src/views/layout.php';
+require_once dirname(__DIR__) . '/src/visitors.php';
 
 $user = page_guard('staff');
+log_visit();
 render_head('Staff');
 render_shell_start($user, [
     ['overview', 'Overview', 'bi-speedometer2'],
@@ -112,5 +114,6 @@ render_shell_start($user, [
 <?php render_shell_end([
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
     '/assets/js/api.js',
+    '/assets/js/hotkeys.js',
     '/assets/js/staff.js',
 ]); ?>

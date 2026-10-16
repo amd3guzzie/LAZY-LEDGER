@@ -42,11 +42,13 @@ foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
 // first deploy are added here. Each runs once: it's skipped when the column already exists.
 $columns = [
     ['users', 'birth_date', 'DATE NULL AFTER status'],
+    ['users', 'email_verified', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER status'],
     ['users', 'gender', "ENUM('male','female','non_binary','prefer_not_to_say') NULL AFTER birth_date"],
     ['users', 'currency', "CHAR(3) NOT NULL DEFAULT 'PHP' AFTER gender"],
     ['users', 'privacy_consent_at', 'DATETIME NULL AFTER bill_reminders'],
     ['users', 'tour_completed_at', 'DATETIME NULL AFTER privacy_consent_at'],
     ['transactions', 'recurring_id', 'INT UNSIGNED NULL AFTER category_id'],
+    ['visitors', 'action', "VARCHAR(120) NOT NULL DEFAULT 'Viewed page' AFTER page"],
 ];
 foreach ($columns as [$table, $column, $definition]) {
     $exists = q_val(
@@ -80,6 +82,11 @@ if (q_val("SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABAS
     out('Dropped column accounts.due_date');
 }
 out('Schema is up to date.');
+
+// Data retention (see public/company.php#retention): delete old visitor logs and used/expired email links.
+$purgedVisits = $pdo->exec('DELETE FROM visitors WHERE visited_at < DATE_SUB(NOW(), INTERVAL 12 MONTH)');
+$purgedLinks = $pdo->exec('DELETE FROM email_verifications WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)');
+out("Retention clean-up: removed $purgedVisits old visitor row(s) and $purgedLinks old email link(s).");
 
 // 2. Global categories (added only if missing)
 $globals = [

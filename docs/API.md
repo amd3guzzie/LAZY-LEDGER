@@ -15,6 +15,7 @@ Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 | POST | `/auth/login` | `email, password` | Returns `user`, `redirect`, `csrf`. |
 | POST | `/auth/forgot-password` | `email` | Emails a 6-digit code (valid 10 minutes, only the newest works). Same response whether or not the account exists. `429` if a code was sent in the last minute or 5 in the last hour. |
 | POST | `/auth/reset-password` | `email, code, password, confirm_password` | Sets a new password if the code matches. 5 wrong tries cancel the code. Does not log in. |
+| POST | `/auth/resend-verification` | `email` | Emails a new 24-hour confirmation link if that account is not confirmed yet. Login returns `403` until the link (`/verify.php?token=...`) is opened. |
 | POST | `/auth/logout` | — | Destroys the session. |
 | GET | `/auth/me` | — | Current user. |
 
@@ -46,6 +47,7 @@ Base URL: `/api`. Requests and responses are JSON (except the CSV export).
 | PUT | `/transactions/{id}` | same as POST. `recurring: true` updates the series (future occurrences); `false` stops it; omitted leaves it unchanged. |
 | DELETE | `/transactions/{id}` | — |
 | GET | `/transactions/export` | same filters as list → CSV download |
+| GET | `/transactions/report` | same filters as list → JSON rows (max 2000) used by the browser to build the PDF export |
 | GET | `/recurring` | recurring series with `next_due_date`, `overdue` |
 | POST | `/recurring/{id}/pay` | `amount?, date?` (defaults: series amount, today). Records the transaction and moves to the next due date. |
 | POST | `/recurring/{id}/skip` | Marks the current occurrence not paid / not received: nothing recorded, moves to the next due date. |
@@ -105,3 +107,12 @@ curl -b jar.txt -c jar.txt -X POST http://localhost:8080/api/auth/login \
 # 3. list this month's expenses, biggest first
 curl -b jar.txt "http://localhost:8080/api/transactions?type=expense&from=2026-09-01&sort=amount&dir=desc"
 ```
+
+## Reviews, visitors
+
+| Method | Path | Body / query | Notes |
+|---|---|---|---|
+| GET | `/reviews` | — | Customers. Latest 50 reviews with author name and date, plus `summary.average` and `summary.total`. |
+| POST | `/reviews` | `rating` (1–5), `comment` (5–500 chars) | Customers. One review per customer; posting again updates it. |
+| POST | `/track` | `action` (max 120), `page?` (max 190) | Anyone (CSRF still required). Saves a visitor-log row with IP and time; sent by `assets/js/tracker.js` on clicks. |
+| GET | `/admin/visitors` | `q?`, `page`, `per_page` | Admin. Visitor log, newest first, searchable by IP, page or action; `today` has visit and unique-IP counts. |

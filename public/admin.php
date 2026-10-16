@@ -3,14 +3,17 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/src/auth.php';
 require_once dirname(__DIR__) . '/src/views/layout.php';
+require_once dirname(__DIR__) . '/src/visitors.php';
 
 $user = page_guard('admin');
+log_visit();
 render_head('Admin');
 render_shell_start($user, [
     ['overview', 'Overview', 'bi-speedometer2'],
     ['users', 'Users & Roles', 'bi-people-fill'],
     ['categories', 'Global Categories', 'bi-tags-fill'],
     ['audit', 'Audit Log', 'bi-journal-text'],
+    ['visitors', 'Visitors', 'bi-globe2'],
 ], 'Admin');
 ?>
 
@@ -105,6 +108,24 @@ render_shell_start($user, [
   </div>
 </section>
 
+<section class="view" data-view="visitors" hidden aria-labelledby="visitorsTitle">
+  <div class="content-panel">
+    <h1 class="page-title mb-3" id="visitorsTitle">Visitors</h1>
+    <p class="privacy-note" id="visitorStats">Loading…</p>
+    <form class="row g-2 mb-2" id="visitorsFilter" role="search">
+      <div class="col-md-6"><label class="visually-hidden" for="vQ">Search</label><input class="form-control border-0" type="search" id="vQ" name="q" placeholder="Search by IP address, page or action" maxlength="100"></div>
+      <div class="col-md-6 text-md-end"><button class="btn btn-ll-outline" type="button" id="visitorsPdf"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button></div>
+    </form>
+    <div class="ll-card">
+      <div class="table-responsive"><table class="table table-ll table-sm">
+        <thead><tr><th>Time</th><th>IP address</th><th>Action</th><th>Page</th><th>Logged in as</th><th>Browser</th></tr></thead>
+        <tbody id="visitorsBody"></tbody>
+      </table></div>
+      <div id="visitorsPager" class="mt-2"></div>
+    </div>
+  </div>
+</section>
+
 <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <form id="userForm" novalidate>
@@ -115,7 +136,7 @@ render_shell_start($user, [
         <div class="col-6"><label class="form-label" for="nuLast">Last name</label><input class="form-control" id="nuLast" name="last_name" maxlength="60"></div>
         <div class="col-12"><label class="form-label" for="nuEmail">Email<span class="req">*</span></label><input class="form-control" type="email" id="nuEmail" name="email" maxlength="190" required></div>
         <div class="col-6"><label class="form-label" for="nuRole">Role<span class="req">*</span></label><select class="form-select" id="nuRole" name="role"><option value="staff">Staff</option><option value="admin">Admin</option><option value="customer">Customer</option></select></div>
-        <div class="col-6"><label class="form-label" for="nuPassword">Temporary password<span class="req">*</span></label><input class="form-control" type="password" id="nuPassword" name="password" autocomplete="new-password" required></div>
+        <div class="col-6"><label class="form-label" for="nuPassword">Temporary password<span class="req">*</span></label><input class="form-control" type="password" id="nuPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="72"></div>
         <div class="col-12 form-text">Share the temporary password privately; they can change it from their profile.</div>
       </div>
       <div class="modal-footer"><button type="button" class="btn btn-ll-outline" data-bs-dismiss="modal">Cancel</button><button class="btn btn-ll" type="submit">Create</button></div>
@@ -133,13 +154,16 @@ render_shell_start($user, [
         <div class="mb-2"><label class="form-label" for="catName">Name<span class="req">*</span></label><input class="form-control" id="catName" name="name" maxlength="60" required></div>
         <div class="mb-2"><label class="form-label" for="catType">Type<span class="req">*</span></label><select class="form-select" id="catType" name="type"><option value="expense">Expense</option><option value="income">Income</option></select></div>
       </div>
-      <div class="modal-footer"><button class="btn btn-ll w-100" type="submit">Save</button></div>
+      <div class="modal-footer"><button type="button" class="btn btn-ll-outline" data-bs-dismiss="modal">Cancel</button><button class="btn btn-ll" type="submit">Save</button></div>
     </form>
   </div></div>
 </div>
 
 <?php render_shell_end([
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',
     '/assets/js/api.js',
+    '/assets/js/hotkeys.js',
     '/assets/js/admin.js',
 ]); ?>

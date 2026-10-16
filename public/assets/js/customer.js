@@ -338,7 +338,7 @@
     form.elements.id.value = tx?.id || '';
     $('#txModalTitle').textContent = tx ? 'Edit transaction' : 'Add transaction';
     const type = tx?.type || 'expense';
-    form.querySelector(`input[name="type"][value="${type}"]`).checked = true;
+    form.elements.type.value = type;
     fillTxCategories(type, tx?.category_id);
     form.elements.description.value = tx?.description || '';
     form.elements.amount.value = tx?.amount ?? '';
@@ -355,7 +355,7 @@
   function syncRecurringFields() {
     const form = $('#txForm');
     const on = form.elements.recurring.checked;
-    const type = form.querySelector('input[name="type"]:checked').value;
+    const type = form.elements.type.value;
     $('#txRecurringKind').textContent = type;
     $('#txFrequencyWrap').hidden = !on;
     if (!on) return;
@@ -515,8 +515,27 @@
     try { renderNotifications(await api('/notifications')); } catch { /* non-critical */ }
   }
 
+  const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+
+  async function loadReviews() {
+    const res = await api('/reviews');
+    const form = $('#reviewForm');
+    $('#rvSummary').textContent = res.summary.total
+      ? `${res.summary.average} / 5 average · ${res.summary.total} review(s)`
+      : 'No reviews yet. Be the first!';
+    $('#rvList').innerHTML = res.data.map((r) => html`<div class="border-bottom py-2">
+        <div class="d-flex justify-content-between"><strong>${r.author}</strong><small class="text-muted-ll">${fmtDate(r.updated_at.slice(0, 10))}</small></div>
+        <div class="text-terracotta" aria-label="${r.rating} out of 5 stars">${stars(r.rating)}</div>
+        <p class="mb-0">${r.comment}</p></div>`).join('');
+    const mine = res.data.find((r) => r.mine);
+    if (mine && !form.elements.comment.value) {
+      form.elements.rating.value = mine.rating;
+      form.elements.comment.value = mine.comment;
+    }
+  }
+
   // ---------- View loading ----------
-  const loaders = { home: loadHome, accounts: loadAccounts, transactions: loadTransactions, budgets: loadBudgets, stats: loadStats, profile: loadProfile };
+  const loaders = { home: loadHome, accounts: loadAccounts, transactions: loadTransactions, budgets: loadBudgets, stats: loadStats, reviews: loadReviews, profile: loadProfile };
 
   function handleLoadError(err) {
     toast(err.message || 'Could not load data.', 'error');
@@ -652,7 +671,10 @@
     $('#currencySelect').addEventListener('change', (e) => setDisplayCurrency(e.target.value));
 
     // Transaction form
-    $('#txForm').querySelectorAll('input[name="type"]').forEach((r) => r.addEventListener('change', () => { fillTxCategories(r.value); syncRecurringFields(); }));
+    $('#txForm').elements.type.addEventListener('change', (e) => {
+      fillTxCategories(e.target.value);
+      syncRecurringFields();
+    });
     ['recurring', 'frequency', 'transaction_date'].forEach((name) => $('#txForm').elements[name].addEventListener('change', syncRecurringFields));
     $('#txForm').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -672,6 +694,16 @@
         toast(id ? 'Transaction updated.' : 'Transaction added.');
         await afterDataChange();
         refreshBadge();
+      });
+    });
+
+    $('#reviewForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = e.target;
+      submitting(form, async () => {
+        const res = await api('/reviews', { method: 'POST', body: formData(form) });
+        toast(res.message);
+        await loadReviews();
       });
     });
 
@@ -715,6 +747,21 @@
       window.location.href = '/api/transactions/export?' + q.toString();
     });
     $('#exportAll').addEventListener('click', () => { window.location.href = '/api/transactions/export'; });
+
+    // Export to PDF: uses the same search/filters as the table on screen.
+    $('#exportPdf').addEventListener('click', async () => {
+      const query = Object.fromEntries(Object.entries(txQuery()).filter(([, v]) => v !== '' && v != null));
+      const res = await api('/transactions/report', { query });
+      if (!res.data.length) { toast('No transactions to export.', 'info'); return; }
+      const amount = (t) => `${t.type === 'expense' ? '-' : ''}${LL.currency.base} ${Number(t.amount).toFixed(2)}`;
+      LL.exportPdf({
+        title: 'LazyLedger - Transactions',
+        subtitle: `${res.data.length} transaction(s)`,
+        head: ['Date', 'Description', 'Category', 'Account', 'Type', 'Amount'],
+        body: res.data.map((t) => [t.transaction_date, t.description, t.category_name || 'Uncategorized', t.account_name, t.type, amount(t)]),
+        filename: `lazyledger-transactions-${LL.today()}.pdf`,
+      });
+    });
 
     // Budgets
     $('#budgetForm').addEventListener('submit', (e) => {

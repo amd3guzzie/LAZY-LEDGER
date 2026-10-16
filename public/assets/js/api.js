@@ -259,6 +259,22 @@ const LL = (() => {
     show();
   }
 
+  // Export to PDF: builds a table PDF in the browser and downloads it.
+  // Needs jspdf.umd.min.js and jspdf.plugin.autotable.min.js on the page.
+  function exportPdf({ title, subtitle = '', head, body, filename }) {
+    if (!window.jspdf) {
+      toast('PDF library failed to load. Check your connection and try again.', 'error');
+      return;
+    }
+    const doc = new window.jspdf.jsPDF({ orientation: 'landscape' });
+    doc.setFontSize(16);
+    doc.text(title, 14, 16);
+    doc.setFontSize(10);
+    doc.text(`${subtitle}${subtitle ? ' | ' : ''}Generated ${new Date().toLocaleString()}`, 14, 23);
+    doc.autoTable({ head: [head], body, startY: 28, styles: { fontSize: 9 }, headStyles: { fillColor: [199, 122, 95] } });
+    doc.save(filename);
+  }
+
   function bindLogout() {
     document.getElementById('logoutBtn')?.addEventListener('click', async () => {
       try { await api('/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
@@ -269,5 +285,6 @@ const LL = (() => {
   return {
     api, ApiError, escapeHtml, html, raw, money, currency, currencySymbol, fmtDate, fmtDateTime, today, monthKey, monthLabel, shiftMonth,
     toast, showErrors, clearErrors, formData, submitting, confirm, debounce, pagination, statusPill, progressBar, router, bindLogout,
+    exportPdf,
   };
 })();

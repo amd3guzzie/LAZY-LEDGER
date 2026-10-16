@@ -47,6 +47,7 @@ $r = new Router();
 // Auth
 $r->post('/auth/register', [AuthController::class, 'register']);
 $r->post('/auth/login', [AuthController::class, 'login']);
+$r->post('/auth/resend-verification', [AuthController::class, 'resendVerification']);
 $r->post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 $r->post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 $r->post('/auth/logout', [AuthController::class, 'logout']);
@@ -69,9 +70,13 @@ $r->put('/accounts/{id}', [AccountController::class, 'update']);
 $r->delete('/accounts/{id}', [AccountController::class, 'destroy']);
 
 $r->get('/categories', [CategoryController::class, 'index']);
+$r->post('/track', [VisitorController::class, 'track']);
+$r->get('/reviews', [ReviewController::class, 'index']);
+$r->post('/reviews', [ReviewController::class, 'store']);
 
 $r->get('/transactions', [TransactionController::class, 'index']);
 $r->get('/transactions/export', [TransactionController::class, 'export']);
+$r->get('/transactions/report', [TransactionController::class, 'report']);
 $r->get('/transactions/{id}', [TransactionController::class, 'show']);
 $r->post('/transactions', [TransactionController::class, 'store']);
 $r->put('/transactions/{id}', [TransactionController::class, 'update']);
@@ -116,5 +121,6 @@ $r->post('/admin/categories', [AdminController::class, 'createCategory']);
 $r->put('/admin/categories/{id}', [AdminController::class, 'updateCategory']);
 $r->delete('/admin/categories/{id}', [AdminController::class, 'deleteCategory']);
 $r->get('/admin/audit-log', [AdminController::class, 'auditLog']);
+$r->get('/admin/visitors', [AdminController::class, 'visitors']);
 
 $r->dispatch($method, $path);

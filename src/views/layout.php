@@ -30,6 +30,7 @@ function render_head(string $title): void
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <link href="<?= e(asset('/assets/css/styles.css')) ?>" rel="stylesheet">
+  <script src="<?= e(asset('/assets/js/tracker.js')) ?>" defer></script>
 </head>
     <?php
 }
@@ -117,4 +118,19 @@ function render_common_ui(): void
   </div>
 </div>
     <?php
+}
+
+/** Quick Links block, shared by the landing page and the company page. */
+function render_quick_links(): void
+{
+  ?>
+<div class="font-display text-terracotta fs-4 text-decoration-underline">QUICK LINKS</div>
+<nav class="footer-links d-grid gap-1 mt-2" style="grid-template-columns: 1fr 1fr" aria-label="Quick links">
+  <a href="/">Home</a><a href="/#features">Features</a>
+  <a href="/company.php#about">About Us</a><a href="/company.php#contact">Contact</a>
+  <a href="/company.php#privacy">Privacy Policy</a><a href="/company.php#retention">Retention Policy</a>
+  <a href="/company.php#terms">Terms</a>
+  <a href="/?login=1">Login</a>
+</nav>
+  <?php
 }

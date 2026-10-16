@@ -5,7 +5,7 @@
   const { api, html, raw, fmtDate, fmtDateTime, toast, formData, submitting, showErrors } = LL;
   const $ = (sel) => document.querySelector(sel);
   const ME = Number(document.body.dataset.userId || 0);
-  const state = { usersPage: 1, auditPage: 1, sort: 'created', dir: 'desc', users: new Map(), cats: new Map(), charts: {} };
+  const state = { usersPage: 1, auditPage: 1, visitorsPage: 1, sort: 'created', dir: 'desc', users: new Map(), cats: new Map(), charts: {} };
   const handleError = (err) => toast(err.message || 'Could not load data.', 'error');
   const modal = (id) => bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
 
@@ -136,7 +136,32 @@
     LL.pagination($('#auditPager'), res.meta, (p) => { state.auditPage = p; loadAudit().catch(handleError); });
   }
 
-  const loaders = { overview: loadOverview, users: loadUsers, categories: loadCategories, audit: loadAudit };
+  async function loadVisitors() {
+    const res = await api('/admin/visitors', { query: { ...formData($('#visitorsFilter')), page: state.visitorsPage } });
+    $('#visitorStats').textContent = `${res.today.total} visits today · ${res.today.unique_ips} unique IP addresses`;
+    $('#visitorsBody').innerHTML = res.data.length
+      ? res.data.map((v) => html`<tr>
+          <td class="small text-nowrap">${fmtDateTime(v.visited_at)}</td>
+          <td class="fw-800">${v.ip_address}</td><td>${v.action}</td><td>${v.page}</td>
+          <td>${v.user_name || 'Guest'}</td>
+          <td class="small text-truncate" style="max-width:260px">${v.user_agent}</td></tr>`).join('')
+      : html`<tr><td colspan="6" class="empty-hint">No visitors yet.</td></tr>`;
+    LL.pagination($('#visitorsPager'), res.meta, (p) => { state.visitorsPage = p; loadVisitors().catch(handleError); });
+  }
+
+  // Export to PDF: the latest 100 visitor rows that match the search box.
+  async function exportVisitorsPdf() {
+    const res = await api('/admin/visitors', { query: { ...formData($('#visitorsFilter')), page: 1, per_page: 100 } });
+    LL.exportPdf({
+      title: 'LazyLedger - Visitor log',
+      subtitle: `${res.data.length} of ${res.meta.total} visit(s)`,
+      head: ['Time', 'IP address', 'Action', 'Page', 'Logged in as'],
+      body: res.data.map((v) => [v.visited_at, v.ip_address, v.action, v.page, v.user_name || 'Guest']),
+      filename: `lazyledger-visitors-${LL.today()}.pdf`,
+    });
+  }
+
+  const loaders = { overview: loadOverview, users: loadUsers, categories: loadCategories, audit: loadAudit, visitors: loadVisitors };
 
   document.addEventListener('DOMContentLoaded', () => {
     LL.bindLogout();
@@ -226,12 +251,14 @@
       loadUsers().catch(handleError);
     }));
 
-    [['#usersFilter', () => { state.usersPage = 1; loadUsers().catch(handleError); }], ['#auditFilter', () => { state.auditPage = 1; loadAudit().catch(handleError); }]].forEach(([sel, reload]) => {
+    [['#usersFilter', () => { state.usersPage = 1; loadUsers().catch(handleError); }], ['#auditFilter', () => { state.auditPage = 1; loadAudit().catch(handleError); }], ['#visitorsFilter', () => { state.visitorsPage = 1; loadVisitors().catch(handleError); }]].forEach(([sel, reload]) => {
       const form = $(sel);
       form.addEventListener('submit', (e) => { e.preventDefault(); reload(); });
       form.addEventListener('change', reload);
       form.querySelector('input[type="search"]').addEventListener('input', LL.debounce(reload, 350));
     });
+
+    $('#visitorsPdf').addEventListener('click', () => exportVisitorsPdf().catch(handleError));
 
     LL.router(Object.keys(loaders), (v) => loaders[v]().catch(handleError));
   });

@@ -293,6 +293,32 @@ final class AdminController
         return paged($rows, $total, $page, $per);
     }
 
+    /** GET /admin/visitors - visitor log, newest first, searchable by IP or page. */
+    public static function visitors(): array
+    {
+        require_role('admin');
+        [$page, $per, $offset] = pagination(15);
+        $where = ['1 = 1'];
+        $params = [];
+        $qStr = trim((string) ($_GET['q'] ?? ''));
+        if ($qStr !== '') {
+            $like = '%' . addcslashes($qStr, '%_\\') . '%';
+            $where[] = '(v.ip_address LIKE ? OR v.page LIKE ? OR v.action LIKE ?)';
+            array_push($params, $like, $like, $like);
+        }
+        $w = implode(' AND ', $where);
+        $total = (int) q_val("SELECT COUNT(*) FROM visitors v WHERE $w", $params);
+        $rows = q_all(
+            "SELECT v.id, v.ip_address, v.page, v.action, v.user_agent, v.visited_at,
+                    CONCAT(u.first_name, ' ', u.last_name) AS user_name
+             FROM visitors v LEFT JOIN users u ON u.id = v.user_id
+             WHERE $w ORDER BY v.id DESC LIMIT $per OFFSET $offset",
+            $params
+        );
+        $today = q_one('SELECT COUNT(*) AS total, COUNT(DISTINCT ip_address) AS unique_ips FROM visitors WHERE visited_at >= CURDATE()');
+        return paged($rows, $total, $page, $per) + ['today' => $today];
+    }
+
     private static function validatedCategory(array $body, ?int $ignoreId): array
     {
         $v = new Validator($body);

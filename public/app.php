@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/src/auth.php';
 require_once dirname(__DIR__) . '/src/views/layout.php';
+require_once dirname(__DIR__) . '/src/visitors.php';
 require_once dirname(__DIR__) . '/src/currencies.php';
 
 $user = page_guard('customer');
+log_visit();
 $currency = $user['currency'] ?? 'PHP';
 render_head('Dashboard');
 render_shell_start($user, [
@@ -14,6 +16,7 @@ render_shell_start($user, [
     ['transactions', 'Transactions', 'bi-list-ul'],
     ['budgets', 'Budgets', 'bi-wallet-fill'],
     ['stats', 'Stats', 'bi-pie-chart-fill'],
+    ['reviews', 'Reviews', 'bi-star-fill'],
     ['profile', 'Profile', 'bi-person-fill'],
 ], 'Customer');
 ?>
@@ -180,6 +183,7 @@ render_shell_start($user, [
       <h1 class="page-title" id="txTitle">Transactions</h1>
       <div class="d-flex gap-2">
         <button class="btn btn-ll-outline" id="exportCsv"><i class="bi bi-download"></i> Export CSV</button>
+        <button class="btn btn-ll-outline" id="exportPdf"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
         <button class="btn btn-ll" data-action="add-transaction"><i class="bi bi-plus-lg"></i> Add transaction</button>
       </div>
     </div>
@@ -292,6 +296,36 @@ render_shell_start($user, [
   </div>
 </section>
 
+<!-- ============ REVIEWS ============ -->
+<section class="view" data-view="reviews" hidden aria-labelledby="reviewsTitle">
+  <h1 class="page-title mb-3" id="reviewsTitle">Reviews</h1>
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <form class="ll-card" id="reviewForm" novalidate>
+        <h2 class="ll-card-title mb-2">Rate LazyLedger</h2>
+        <div class="alert alert-danger py-2 form-error" hidden></div>
+        <label class="form-label" for="rvRating">Your rating<span class="req">*</span></label>
+        <select class="form-select mb-2" id="rvRating" name="rating" required>
+          <option value="5">★★★★★ (5) Excellent</option>
+          <option value="4">★★★★☆ (4) Good</option>
+          <option value="3">★★★☆☆ (3) Okay</option>
+          <option value="2">★★☆☆☆ (2) Poor</option>
+          <option value="1">★☆☆☆☆ (1) Bad</option>
+        </select>
+        <label class="form-label" for="rvComment">Comment<span class="req">*</span></label>
+        <textarea class="form-control" id="rvComment" name="comment" rows="4" minlength="5" maxlength="500" required placeholder="What do you like? What can we improve?"></textarea>
+        <button class="btn btn-ll mt-3" type="submit">Post review</button>
+      </form>
+    </div>
+    <div class="col-lg-7">
+      <div class="ll-card">
+        <div class="fw-800 mb-2" id="rvSummary"></div>
+        <div id="rvList"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ PROFILE ============ -->
 <section class="view" data-view="profile" hidden aria-labelledby="profileTitle">
   <div class="content-panel">
@@ -317,7 +351,7 @@ render_shell_start($user, [
             <!-- Dynamically hidden password confirmation field -->
             <div class="col-12" id="passwordConfirmGroup" style="display: none;">
               <label class="form-label" for="pCurrentPassword">Current password</label>
-              <input class="form-control" type="password" id="pCurrentPassword" name="current_password">
+              <input class="form-control" type="password" id="pCurrentPassword" name="current_password" maxlength="72">
               <div class="form-text text-terracotta fw-bold">Required to authorize your email address change.</div>
             </div>
 
@@ -376,14 +410,17 @@ render_shell_start($user, [
       <div class="modal-body">
         <div class="alert alert-danger py-2 form-error" hidden></div>
         <input type="hidden" name="id">
-        <div class="btn-group w-100 mb-3" role="radiogroup" aria-label="Type">
-          <input type="radio" class="btn-check" name="type" id="txTypeExpense" value="expense" checked><label class="btn btn-ll-outline" for="txTypeExpense">Expense</label>
-          <input type="radio" class="btn-check" name="type" id="txTypeIncome" value="income"><label class="btn btn-ll-outline" for="txTypeIncome">Income</label>
+        <div class="mb-3">
+          <label class="form-label" for="txType">Type<span class="req">*</span></label>
+          <select class="form-select" id="txType" name="type" required>
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
         </div>
         <div class="mb-2"><label class="form-label" for="txDesc">Description<span class="req">*</span></label><input class="form-control" id="txDesc" name="description" maxlength="120" required placeholder="e.g. SM Supermarket"></div>
         <div class="row g-2 mb-2">
-          <div class="col-6"><label class="form-label" for="txAmount">Amount (<span data-cur-symbol></span>)<span class="req">*</span></label><input class="form-control" type="number" id="txAmount" name="amount" min="0.01" step="0.01" required inputmode="decimal"></div>
-          <div class="col-6"><label class="form-label" for="txDate">Date<span class="req">*</span></label><input class="form-control" type="date" id="txDate" name="transaction_date" required></div>
+          <div class="col-6"><label class="form-label" for="txAmount">Amount (<span data-cur-symbol></span>)<span class="req">*</span></label><input class="form-control" type="number" id="txAmount" max="9999999999.99" name="amount" min="0.01" step="0.01" required inputmode="decimal"></div>
+          <div class="col-6"><label class="form-label" for="txDate">Date<span class="req">*</span></label><input class="form-control" type="date" id="txDate" name="transaction_date" required min="2000-01-01" max="<?= e(date('Y-m-d', strtotime('+1 year'))) ?>"></div>
         </div>
         <div class="row g-2">
           <div class="col-6"><label class="form-label" for="txAccount">Account<span class="req">*</span></label><select class="form-select" id="txAccount" name="account_id" required></select></div>
@@ -421,7 +458,7 @@ render_shell_start($user, [
           <select class="form-select" id="accType" name="type" required>
             <option value="cash">Cash</option><option value="bank">Bank</option><option value="e_wallet">E-wallet</option><option value="savings">Savings</option>
           </select></div>
-        <div class="mb-2"><label class="form-label" for="accOpening">Starting balance (<span data-cur-symbol></span>)</label><input class="form-control" type="number" id="accOpening" name="opening_balance" min="0" step="0.01" value="0" inputmode="decimal"></div>
+        <div class="mb-2"><label class="form-label" for="accOpening">Starting balance (<span data-cur-symbol></span>)</label><input class="form-control" type="number" id="accOpening" max="9999999999.99" name="opening_balance" min="0" step="0.01" value="0" inputmode="decimal"></div>
       </div>
       <div class="modal-footer justify-content-between">
         <button type="button" class="btn btn-outline-danger fw-bold" id="accDelete" hidden>Delete</button>
@@ -439,7 +476,7 @@ render_shell_start($user, [
         <div class="alert alert-danger py-2 form-error" hidden></div>
         <input type="hidden" name="id">
         <div class="mb-2"><label class="form-label" for="bCategory">Category<span class="req">*</span></label><select class="form-select" id="bCategory" name="category_id" required></select></div>
-        <div class="mb-2"><label class="form-label" for="bLimit">Monthly limit (<span data-cur-symbol></span>)<span class="req">*</span></label><input class="form-control" type="number" id="bLimit" name="amount_limit" min="0.01" step="0.01" required inputmode="decimal"></div>
+        <div class="mb-2"><label class="form-label" for="bLimit">Monthly limit (<span data-cur-symbol></span>)<span class="req">*</span></label><input class="form-control" type="number" id="bLimit" max="9999999999.99" name="amount_limit" min="0.01" step="0.01" required inputmode="decimal"></div>
         <p class="small fw-bold text-muted-ll mb-0">Applies to <span id="bMonthLabel"></span>.</p>
       </div>
       <div class="modal-footer justify-content-between">
@@ -457,10 +494,10 @@ render_shell_start($user, [
       <div class="modal-body">
         <div class="alert alert-danger py-2 form-error" hidden></div>
         <label class="form-label" for="totalAmount">Amount (<span data-cur-symbol></span>)</label>
-        <input class="form-control" type="number" id="totalAmount" name="monthly_budget" min="0.01" step="0.01" inputmode="decimal">
+        <input class="form-control" type="number" id="totalAmount" max="9999999999.99" name="monthly_budget" min="0.01" step="0.01" inputmode="decimal">
         <p class="small text-muted-ll fw-bold mt-2 mb-0">Leave blank to use the sum of your category budgets.</p>
       </div>
-      <div class="modal-footer"><button class="btn btn-ll w-100" type="submit">Save</button></div>
+      <div class="modal-footer"><button type="button" class="btn btn-ll-outline" data-bs-dismiss="modal">Cancel</button><button class="btn btn-ll" type="submit">Save</button></div>
     </form>
   </div></div>
 </div>
@@ -501,11 +538,11 @@ render_shell_start($user, [
       <div class="modal-header"><h2 class="modal-title fs-4" id="passwordModalTitle">Change password</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body">
         <div class="alert alert-danger py-2 form-error" hidden></div>
-        <div class="mb-2"><label class="form-label" for="pwCurrent">Current password</label><input class="form-control" type="password" id="pwCurrent" name="current_password" autocomplete="current-password" required></div>
-        <div class="mb-2"><label class="form-label" for="pwNew">New password</label><input class="form-control" type="password" id="pwNew" name="new_password" autocomplete="new-password" required><div class="form-text">At least 8 characters, with a letter and a number.</div></div>
-        <div class="mb-2"><label class="form-label" for="pwConfirm">Confirm new password</label><input class="form-control" type="password" id="pwConfirm" name="confirm_password" autocomplete="new-password" required></div>
+        <div class="mb-2"><label class="form-label" for="pwCurrent">Current password</label><input class="form-control" type="password" id="pwCurrent" name="current_password" autocomplete="current-password" required maxlength="72"></div>
+        <div class="mb-2"><label class="form-label" for="pwNew">New password</label><input class="form-control" type="password" id="pwNew" name="new_password" autocomplete="new-password" required minlength="8" maxlength="72"><div class="form-text">At least 8 characters, with a letter and a number.</div></div>
+        <div class="mb-2"><label class="form-label" for="pwConfirm">Confirm new password</label><input class="form-control" type="password" id="pwConfirm" name="confirm_password" autocomplete="new-password" required minlength="8" maxlength="72"></div>
       </div>
-      <div class="modal-footer"><button class="btn btn-ll w-100" type="submit">Update password</button></div>
+      <div class="modal-footer"><button type="button" class="btn btn-ll-outline" data-bs-dismiss="modal">Cancel</button><button class="btn btn-ll" type="submit">Update password</button></div>
     </form>
   </div></div>
 </div>
@@ -518,7 +555,7 @@ render_shell_start($user, [
         <div class="alert alert-danger py-2 form-error" hidden></div>
         <p class="fw-bold">This permanently deletes your accounts, transactions, budgets and requests. It cannot be undone.</p>
         <label class="form-label" for="delPassword">Enter your password to confirm</label>
-        <input class="form-control" type="password" id="delPassword" name="password" autocomplete="current-password" required>
+        <input class="form-control" type="password" id="delPassword" name="password" autocomplete="current-password" required maxlength="72">
       </div>
       <div class="modal-footer"><button type="button" class="btn btn-ll-outline" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger fw-bold" type="submit">Delete permanently</button></div>
     </form>
@@ -527,7 +564,10 @@ render_shell_start($user, [
 
 <?php render_shell_end([
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',
     '/assets/js/api.js',
+    '/assets/js/hotkeys.js',
     '/assets/js/tour.js',
     '/assets/js/customer.js',
 ]); ?>

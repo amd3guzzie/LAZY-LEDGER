@@ -451,4 +451,20 @@ resetForm.addEventListener('submit', (e) => {
       }, { once: true });
     });
   });
+
+  document.getElementById('resendBtn').addEventListener('click', async () => {
+    const email = loginForm.elements.email.value.trim();
+    if (!email) {
+      LL.showErrors(loginForm, { fields: { email: 'Enter your email first.' } });
+      return;
+    }
+    try {
+      const res = await LL.api('/auth/resend-verification', { method: 'POST', body: { email } });
+      const ok = document.getElementById('loginSuccess');
+      ok.textContent = res.message;
+      ok.hidden = false;
+    } catch (err) {
+      LL.showErrors(loginForm, err);
+    }
+  });
 });

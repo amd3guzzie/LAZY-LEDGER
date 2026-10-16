@@ -157,6 +157,23 @@ final class Validator
         return (int) $value;
     }
 
+    /** Whole number between $min and $max (e.g. a 1-5 star rating). */
+    public function intRange(string $key, string $label, int $min, int $max, bool $required = true): ?int
+    {
+        $value = $this->data[$key] ?? null;
+        if ($value === null || $value === '') {
+            if ($required) {
+                $this->errors[$key] = "$label is required.";
+            }
+            return null;
+        }
+        if (filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => $min, 'max_range' => $max]]) === false) {
+            $this->errors[$key] = "$label must be a whole number from $min to $max.";
+            return null;
+        }
+        return (int) $value;
+    }
+
     public function bool(string $key): bool
     {
         return filter_var($this->data[$key] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -219,7 +236,7 @@ function send_security_headers(): void
         . "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; "
         . "img-src 'self' data:; "
         . "connect-src 'self' https://api.frankfurter.dev; "
-        . "frame-src 'self' https://www.google.com; "
+        . "frame-src 'self' https://www.google.com https://www.youtube-nocookie.com; "
         . "frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
 }
 

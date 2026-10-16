@@ -3,6 +3,7 @@
 require_once dirname(__DIR__) . '/mailer.php';
 require_once dirname(__DIR__) . '/audit.php';
 require_once dirname(__DIR__) . '/currencies.php';
+require_once dirname(__DIR__) . '/visitors.php';
 
 final class AuthController
 {
@@ -56,8 +57,8 @@ final class AuthController
         }
 
         q(
-            'INSERT INTO users (first_name, last_name, email, password_hash, role, birth_date, gender, currency, privacy_consent_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+            'INSERT INTO users (first_name, last_name, email, password_hash, role, birth_date, gender, currency, privacy_consent_at, email_verified)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 0)',
             [$first, $last, $email, password_hash($password, PASSWORD_DEFAULT), 'customer', $birthDate, $gender, $currency]
         );
         $user = q_one('SELECT * FROM users WHERE id = ?', [(int) db()->lastInsertId()]);
@@ -66,22 +67,15 @@ final class AuthController
         
         notify((int) $user['id'], 'Welcome to LazyLedger! Start by adding an account and setting a budget.');
         
-        send_transactional_email(
-            $user['email'], 
-            $user['first_name'], 
-            'Welcome to LazyLedger!', 
-            email_layout(
-                'Welcome, ' . $user['first_name'] . '!',
-                '<p>Your LazyLedger account is ready. Log in with <b>' . e($email) . '</b> to set your first budget.</p>'
-                . '<p>Your amounts will be tracked in <b>' . e($currency) . '</b>.</p>'
-                . '<p>If you did not create this account, please ignore this email or contact support.</p>',
-                'Log in to LazyLedger',
-                '/?login=1'
-            )
-        );
+        self::sendVerification($user);
+        log_visit('Signed up', '/register');
 
         // No session is started: the new customer must log in (which also passes the CAPTCHA).
-        return ['ok' => true, 'email' => $email, 'message' => 'Account created! Please log in to continue.'];
+        return [
+            'ok' => true,
+            'email' => $email,
+            'message' => "Account created! We sent a confirmation link to $email. Click it to activate your account, then log in.",
+        ];
     }
 
     public static function login(): array
@@ -107,7 +101,10 @@ final class AuthController
         }
         $v->done();
 
-        $recaptchaSecret = '6LeC6dYtAAAAAB99au6I0sF7Da6Wz6efdgL1RPb9';
+        $recaptchaSecret = env('RECAPTCHA_SECRET');
+        if ($recaptchaSecret === null) {
+            fail(503, 'CAPTCHA verification is not configured. Please contact support.');
+        }
         $verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
         
         $context = stream_context_create([
@@ -154,6 +151,11 @@ final class AuthController
             audit((int) $user['id'], 'auth.login_blocked', 'user', (int) $user['id'], "$email: account suspended");
             fail(403, 'This account has been suspended. Please contact support.');
         }
+
+        if ((int) $user['email_verified'] !== 1) {
+            audit((int) $user['id'], 'auth.login_blocked', 'user', (int) $user['id'], "$email: email not confirmed");
+            fail(403, 'Please confirm your email first. Check your inbox for the confirmation link, or click "Resend it".');
+        }
         
         if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
             q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $user['id']]);
@@ -164,8 +166,56 @@ final class AuthController
 
         $_SESSION['login_failures'] = 0;
         audit((int) $user['id'], 'auth.login', 'user', (int) $user['id'], $email);
+        log_visit('Logged in', '/login');
 
         return ['user' => public_user($user), 'redirect' => home_for_role($user['role']), 'csrf' => csrf_token()];
+    }
+
+    /** Create a fresh one-time link (24h) and email it. Older links stop working. */
+    private static function sendVerification(array $user): void
+    {
+        q('UPDATE email_verifications SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL', [$user['id']]);
+        $token = bin2hex(random_bytes(32));
+        q(
+            'INSERT INTO email_verifications (user_id, token_hash, expires_at)
+             VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))',
+            [$user['id'], hash('sha256', $token)]
+        );
+        $path = '/verify.php?token=' . $token;
+        if (is_dev()) {
+            error_log('[lazyledger] Confirmation link: ' . (app_url() ?? '') . $path);
+        }
+        send_transactional_email(
+            $user['email'],
+            $user['first_name'],
+            'Confirm your LazyLedger account',
+            email_layout(
+                'Confirm your email',
+                '<p>Hi ' . e($user['first_name']) . ', thanks for signing up! Click the button below to activate your account.</p>'
+                . '<p>The link works for 24 hours. If you did not create this account, ignore this email.</p>',
+                'Confirm my email',
+                $path
+            )
+        );
+    }
+
+    /** POST /auth/resend-verification - same answer whether or not the email exists. */
+    public static function resendVerification(): array
+    {
+        $v = new Validator(read_json());
+        $email = $v->email('email');
+        $v->done();
+        $user = q_one('SELECT id, first_name, email FROM users WHERE email = ? AND email_verified = 0', [$email]);
+        if ($user) {
+            if (q_val(
+                'SELECT 1 FROM email_verifications WHERE user_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 60 SECOND)',
+                [$user['id']]
+            )) {
+                fail(429, 'A link was just sent. Please wait a minute before requesting another one.');
+            }
+            self::sendVerification($user);
+        }
+        return ['ok' => true, 'message' => "If $email is waiting for confirmation, we sent a new link to it."];
     }
 
     /**

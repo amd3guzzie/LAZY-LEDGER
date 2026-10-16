@@ -5,6 +5,8 @@ require_once dirname(__DIR__) . '/src/currencies.php';
 
 send_security_headers();
 $user = current_user();
+require_once dirname(__DIR__) . '/src/visitors.php';
+log_visit();
 
 $team = [
     ['Agapito, Raphael Lian', 'Database / API Developer'],
@@ -13,6 +15,32 @@ $team = [
     ['Magdaluyo, Sydney Allison', 'Backend Developer'],
     ['Robles, Nicole Joy', 'QA / UI / Documentation'],
 ];
+// Latest 4-5 star reviews shown on the landing page (revision #5).
+try {
+    $reviews = q_all(
+        "SELECT r.rating, r.comment, r.updated_at,
+                CONCAT(u.first_name, IF(u.last_name = '', '', CONCAT(' ', LEFT(u.last_name, 1), '.'))) AS author
+         FROM reviews r JOIN users u ON u.id = r.user_id
+         WHERE r.rating >= 4 ORDER BY r.updated_at DESC LIMIT 3"
+    );
+} catch (Throwable $e) {
+    $reviews = []; // reviews table not created yet
+}
+
+// Made-up budgeting events (revision #5). Edit this list to change what the landing page shows.
+$events = [
+    ['Oct 24, 2026', 'Budgeting 101 for Students', 'Free online workshop: build your first monthly budget with the 50/30/20 rule.'],
+    ['Nov 7, 2026', 'No-Spend Weekend Challenge', 'Track every peso for 2 days and share what you saved with the community.'],
+    ['Nov 21, 2026', 'Holiday Savings Live Q&A', 'Plan your Christmas spending early so January does not hurt.'],
+];
+
+// YouTube videos about budgeting (verified video IDs; shown with the privacy-enhanced player).
+$videos = [
+    ['-Of_WRjDrx0', 'How to Make a Budget: Beginner\'s Guide'],
+    ['NUSjIhHzBlQ', 'How to Create a Budget When Money Is Tight'],
+    ['9pk130oW0PI', 'How to Save & Budget as a Beginner'],
+];
+
 // Sign-up requires age 13+ (also enforced by the API).
 $maxBirthDate = (new DateTimeImmutable('today'))->modify('-13 years')->format('Y-m-d');
 render_head('Lazy Ledger');
@@ -26,12 +54,14 @@ render_head('Lazy Ledger');
       <img src="/assets/img/logo.png" style="height: 36px; width: auto;">LAZY LEDGER</a>
     <div class="d-flex align-items-center gap-3 gap-md-4">
       <a class="nav-item-link" href="#features">Features</a>
+      <a class="nav-item-link" href="#how">How it works</a>
       <a class="nav-item-link" href="#about">About Us</a>
       <span class="divider" aria-hidden="true"></span>
       <?php if ($user): ?>
         <a class="nav-item-link" href="<?= e(home_for_role($user['role'])) ?>">Dashboard</a>
       <?php else: ?>
         <a class="nav-item-link" href="#login" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
+        <a class="btn btn-ll btn-sm" href="#signup" data-bs-toggle="modal" data-bs-target="#signupModal">Sign up free</a>
       <?php endif; ?>
     </div>
   </nav>
@@ -45,13 +75,19 @@ render_head('Lazy Ledger');
         <img class="hero-img" src="/assets/img/hero-section.png" alt="Open ledger book with coins and a calculator">
       </div>
       <div class="col-lg-8">
-        <p class="hero-copy mb-0">LazyLedger is a student-built personal finance tracker designed to make monitoring income, tracking expenses, and budgeting completely stress-free.</p>
+        <p class="hero-copy mb-3">LazyLedger helps you track income and expenses, set budgets and see where your money goes, without the stress.</p>
+        <ul class="list-unstyled benefit-list mb-0">
+          <li><i class="bi bi-check-circle-fill"></i> Free to use, set up in under a minute</li>
+          <li><i class="bi bi-check-circle-fill"></i> Budgets that warn you before you overspend</li>
+          <li><i class="bi bi-check-circle-fill"></i> Track cash, banks and e-wallets in one place</li>
+        </ul>
       </div>
-      <div class="col-lg-4 text-lg-end">
+      <div class="col-lg-4 text-lg-end d-grid d-lg-block gap-2">
         <?php if ($user): ?>
           <a class="btn btn-ll btn-lg" href="<?= e(home_for_role($user['role'])) ?>">Go to dashboard <i class="bi bi-chevron-right"></i></a>
         <?php else: ?>
-          <button class="btn btn-ll btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#signupModal">Get started <i class="bi bi-chevron-right"></i></button>
+          <button class="btn btn-ll btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#signupModal">Sign up free <i class="bi bi-chevron-right"></i></button>
+          <button class="btn btn-ll-outline btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#loginModal">Login</button>
         <?php endif; ?>
       </div>
     </div>
@@ -85,6 +121,83 @@ render_head('Lazy Ledger');
     </div>
   </section>
 
+  <!-- HOW IT WORKS: what the system does and how to use it (revision #11) -->
+  <section class="panel p-4 p-md-5 mb-3" id="how">
+    <h2 class="section-title mb-2 text-center">HOW LAZYLEDGER WORKS</h2>
+    <p class="hero-copy text-center mx-auto" style="max-width: 900px">LazyLedger is a personal budget tracker. You record the money that comes in and goes out, and it shows you how much you have left, warns you before you overspend and charts where your money goes.</p>
+    <div class="row g-3 mt-2">
+      <?php foreach ([
+          ['1', 'Sign up and confirm', 'Create a free account, then click the link we email you to activate it.'],
+          ['2', 'Add your accounts', 'Add your cash, bank, e-wallet or savings accounts with their current balance.'],
+          ['3', 'Record transactions', 'Log each expense or income. Set recurring bills so you never forget them.'],
+          ['4', 'Set budgets and review', 'Set a monthly limit per category and check Stats to see where your money went.'],
+      ] as [$num, $title, $text]): ?>
+        <div class="col-sm-6 col-lg-3">
+          <div class="d-flex gap-3 align-items-start">
+            <div class="step-num"><?= e($num) ?></div>
+            <div><h3 class="step-title"><?= e($title) ?></h3><p class="step-sub"><?= e($text) ?></p></div>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </section>
+
+  <!-- REVIEWS from real users (revision #5) -->
+  <section class="panel p-4 p-md-5 mb-3 text-center" id="reviews">
+    <h2 class="section-title mb-3">WHAT OUR USERS SAY</h2>
+    <?php if ($reviews): ?>
+      <div class="row g-3">
+        <?php foreach ($reviews as $r): ?>
+          <div class="col-md-4">
+            <div class="feature-card h-100 text-start">
+              <div class="text-terracotta fs-4" aria-label="<?= (int) $r['rating'] ?> out of 5 stars"><?= str_repeat('★', (int) $r['rating']) . str_repeat('☆', 5 - (int) $r['rating']) ?></div>
+              <p class="my-2">&ldquo;<?= e($r['comment']) ?>&rdquo;</p>
+              <small class="fw-bold text-muted-ll"><?= e($r['author']) ?> &middot; <?= e(date('M j, Y', strtotime($r['updated_at']))) ?></small>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <p class="hero-copy mb-0">No reviews yet. Sign up and be the first to rate LazyLedger!</p>
+    <?php endif; ?>
+  </section>
+
+  <!-- EVENTS and VIDEOS about budgeting (revision #5) -->
+  <section class="panel p-4 p-md-5 mb-3" id="events">
+    <h2 class="section-title mb-3 text-center">UPCOMING EVENTS</h2>
+    <div class="row g-3 mb-4">
+      <?php foreach ($events as [$date, $title, $text]): ?>
+        <div class="col-md-4">
+          <div class="feature-card h-100 text-start">
+            <div class="fw-bold text-terracotta"><i class="bi bi-calendar-event"></i> <?= e($date) ?></div>
+            <h3 class="mt-2"><?= e($title) ?></h3>
+            <p><?= e($text) ?></p>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <h2 class="section-title mb-3 text-center">LEARN TO BUDGET</h2>
+    <div class="row g-3">
+      <?php foreach ($videos as [$id, $title]): ?>
+        <div class="col-md-4">
+          <div class="ratio ratio-16x9">
+            <iframe src="https://www.youtube-nocookie.com/embed/<?= e($id) ?>" title="<?= e($title) ?>" loading="lazy" allow="encrypted-media; picture-in-picture" allowfullscreen></iframe>
+          </div>
+          <p class="fw-bold mt-2 mb-0"><?= e($title) ?></p>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  </section>
+
+  <?php if (!$user): ?>
+  <section class="panel p-4 p-md-5 mb-3 text-center" id="join">
+    <h2 class="section-title mb-2">READY TO KNOW WHERE YOUR MONEY WENT?</h2>
+    <p class="hero-copy">Join LazyLedger today and make your first budget in minutes.</p>
+    <button class="btn btn-ll btn-lg" type="button" data-bs-toggle="modal" data-bs-target="#signupModal">Create my free account <i class="bi bi-chevron-right"></i></button>
+    <p class="small fw-bold mt-3 mb-0">Already a member? <a href="#login" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a></p>
+  </section>
+  <?php endif; ?>
+
 <section class="panel p-4 p-md-5 mb-3 text-center" id="about">
     <h2 class="section-title mb-3">ABOUT LAZY LEDGER</h2>
     <p class="hero-copy mx-auto" style="max-width: 900px">LazyLedger combines a secure, role-based backend architecture with a clean, responsive frontend interface. By integrating a MySQL database, a PHP REST API, and external APIs   such as live currency conversion   we strive to deliver a reliable, full-stack application that bridges academic concepts with real-world usability.</p>
@@ -114,11 +227,7 @@ render_head('Lazy Ledger');
         <p class="fw-bold text-terracotta mb-0">Simplifying personal finance tracking,<br>one transaction at a time.</p>
       </div>
       <div class="col-md-4 text-md-end">
-        <div class="font-display text-terracotta fs-4 text-decoration-underline">QUICK LINKS</div>
-        <div class="footer-links d-grid gap-1 mt-2" style="grid-template-columns: 1fr 1fr">
-          <a href="#top">Home</a><a href="#features">Features</a>
-          <a href="#login" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a><a href="#about">About Us</a>
-        </div>
+        <?php render_quick_links(); ?>
       </div>
     </div>
     <p class="text-center text-terracotta fw-bold small mt-4 mb-0">All rights reserved.   <?= date('Y') ?> LazyLedger. | Developed as a final project for ITS122P by Group 6.</p>
@@ -135,6 +244,17 @@ render_head('Lazy Ledger');
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form class="modal-body" id="loginForm" novalidate>
+        <div class="login-instructions" role="note">
+          <strong>How to log in</strong>
+          <ul>
+            <li>Fields marked <span class="text-danger fw-bold">*</span> are required.</li>
+            <li>Use the email you registered with. New accounts must be confirmed first (check your inbox for the link).</li>
+            <li>Passwords are 8-72 characters with at least one letter and one number.</li>
+            <li>Forgot your password? Click <em>Forgot Password?</em>, enter your email and use the 6-digit code we send you. The code lasts 10 minutes.</li>
+            <li>Too many wrong attempts temporarily locks login.</li>
+            <li>Didn't get the confirmation email? <button type="button" class="btn-link-ll small" id="resendBtn">Resend it</button></li>
+          </ul>
+        </div>
         <div class="alert alert-success py-2 fw-bold" id="loginSuccess" role="status" hidden></div>
         <div class="alert alert-danger py-2 form-error" role="alert" hidden></div>
         
@@ -157,7 +277,10 @@ render_head('Lazy Ledger');
         
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
           <span class="fw-bold text-terracotta small">New here? <button type="button" class="btn-link-ll" data-switch="#signupModal">Create Account</button></span>
-          <button class="btn btn-ll btn-lg" type="submit" id="loginSubmitBtn">Login</button>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-ll-outline btn-lg" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-ll btn-lg" type="submit" id="loginSubmitBtn">Login</button>
+          </div>
         </div>
       </form>
     </div>
@@ -181,7 +304,10 @@ render_head('Lazy Ledger');
         </div>
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
           <button type="button" class="btn-link-ll small" data-switch="#loginModal">Back to login</button>
-          <button class="btn btn-ll btn-lg" type="submit">Send code</button>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-ll-outline btn-lg" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-ll btn-lg" type="submit">Send code</button>
+          </div>
         </div>
       </form>
       <form class="modal-body" id="resetForm" novalidate hidden>
@@ -212,7 +338,10 @@ render_head('Lazy Ledger');
         </div>
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
           <span class="small fw-bold text-terracotta">No email? <button type="button" class="btn-link-ll" id="resendCode">Send a new code</button></span>
-          <button class="btn btn-ll btn-lg" type="submit">Reset password</button>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-ll-outline btn-lg" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-ll btn-lg" type="submit">Reset password</button>
+          </div>
         </div>
       </form>
     </div>
@@ -270,7 +399,7 @@ render_head('Lazy Ledger');
           <div class="col-md-6">
             <label class="form-label" for="regPassword">Password<span class="req">*</span></label>
             <div class="input-group">
-              <input class="form-control" type="password" id="regPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="128" aria-describedby="pwHelp">
+              <input class="form-control" type="password" id="regPassword" name="password" autocomplete="new-password" required minlength="8" maxlength="72" aria-describedby="pwHelp">
               <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#regPassword" style="border: 2px solid #c77a5f; background-color: white;">
                 <i class="bi bi-eye"></i>
               </button>
@@ -280,7 +409,7 @@ render_head('Lazy Ledger');
           <div class="col-md-6">
             <label class="form-label" for="regConfirm">Confirm Password<span class="req">*</span></label>
             <div class="input-group">
-              <input class="form-control" type="password" id="regConfirm" name="confirm_password" autocomplete="new-password" required>
+              <input class="form-control" type="password" id="regConfirm" name="confirm_password" autocomplete="new-password" required minlength="8" maxlength="72">
               <button class="btn btn-outline-secondary toggle-password" type="button" data-target="#regConfirm" style="border: 2px solid #c77a5f; background-color: white;">
                 <i class="bi bi-eye"></i>
               </button>
@@ -290,16 +419,16 @@ render_head('Lazy Ledger');
             <h3 class="form-label fs-6 mb-1" id="privacyTitle">Data Privacy Notice</h3>
             <div class="privacy-notice" tabindex="0" role="region" aria-labelledby="privacyTitle">
               <p>LazyLedger respects your privacy and processes your personal data in accordance with the <strong>Data Privacy Act of 2012 (Republic Act No. 10173)</strong>, its Implementing Rules and Regulations, and issuances of the National Privacy Commission (NPC).</p>
-              <p><strong>What we collect.</strong> Your name, email address, date of birth, gender and preferred currency; the accounts, transactions, budgets, category requests and support tickets you enter; and security records such as login times, IP addresses and an activity log of actions taken on your account.</p>
+              <p><strong>What we collect.</strong> Your name, email address, date of birth, gender and preferred currency; the accounts, transactions, budgets, category requests and support tickets you enter; and security records such as login times, IP addresses, the pages you visit and the buttons you click, and an activity log of actions taken on your account.</p>
               <p><strong>Why we collect it.</strong> To create and secure your account, confirm you meet the minimum age, show your finances in your chosen currency, send account and support emails, respond to your requests and tickets, and detect and investigate misuse.</p>
               <p><strong>Who can see it.</strong> Your balances and transactions are visible only to you. Our support staff can see your name, email, account status, category requests and tickets, never your transactions. Administrators see aggregated statistics and a security activity log that records which actions were taken (for example, “added a transaction”) but not amounts or descriptions. We do not sell your data. Service providers that process data on our behalf: our hosting provider, Brevo (email delivery) and Google reCAPTCHA (bot protection at login). Exchange rates are fetched from the Frankfurter API without any personal data.</p>
-              <p><strong>How long we keep it.</strong> Until you delete your account from your Profile, which permanently erases your financial records. Security log entries may be kept afterwards to protect the service.</p>
+              <p><strong>How long we keep it.</strong> Until you delete your account from your Profile, which permanently erases your financial records. Visitor logs are deleted after 12 months. Security log entries may be kept afterwards to protect the service. Read the full <a href="/company.php#retention" target="_blank" rel="noopener">Data Retention Policy</a>.</p>
               <p><strong>Your rights.</strong> You have the right to be informed, to access, correct, and object to processing of your data, to erasure or blocking, to data portability (export your transactions as CSV from your Profile), to damages, and to file a complaint with the National Privacy Commission.</p>
               <p class="mb-0"><strong>Contact.</strong> For privacy questions or requests, email our Data Protection Officer at <a href="mailto:support@lazyledger.app">support@lazyledger.app</a>.</p>
             </div>
             <div class="form-check mt-2">
               <input class="form-check-input" type="checkbox" id="regConsent" name="privacy_consent" required>
-              <label class="form-check-label fw-bold small" for="regConsent">I confirm that the information I provided is true and correct, and I have read and agree to the collection and processing of my personal data as described in the Data Privacy Notice.<span class="req">*</span></label>
+              <label class="form-check-label fw-bold small" for="regConsent">I confirm that the information I provided is true and correct, and I have read and agree to the collection and processing of my personal data as described in the Data Privacy Notice and the <a href="/company.php#retention" target="_blank" rel="noopener">Data Retention Policy</a>.<span class="req">*</span></label>
               <div class="invalid-feedback"></div>
             </div>
           </div>
@@ -309,7 +438,10 @@ render_head('Lazy Ledger');
             <span class="d-inline-block border border-2 border-danger rounded-3 px-2 small fw-bold text-danger mb-2">* Indicates required field</span><br>
             <span class="fw-bold text-terracotta small">Already have an account? <button type="button" class="btn-link-ll" data-switch="#loginModal">Login</button></span>
           </div>
-          <button class="btn btn-ll btn-lg" type="submit">Sign up</button>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-ll-outline btn-lg" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-ll btn-lg" type="submit">Sign up</button>
+          </div>
         </div>
       </form>
     </div>

@@ -116,6 +116,16 @@ final class TransactionController
         exit;
     }
 
+    /** GET /transactions/report - same rows as the CSV export, as JSON, so the browser can build a PDF. */
+    public static function report(): array
+    {
+        $user = require_role('customer');
+        [$where, $params] = self::filters((int) $user['id']);
+        $rows = q_all(self::SELECT . " WHERE $where ORDER BY t.transaction_date DESC, t.id DESC LIMIT 2000", $params);
+        audit((int) $user['id'], 'transaction.export', 'transaction', null, count($rows) . ' rows exported to PDF');
+        return ['data' => array_map([self::class, 'present'], $rows)];
+    }
+
     public static function find(int $id, int $userId): array
     {
         $row = q_one(self::SELECT . ' WHERE t.id = ? AND a.user_id = ?', [$id, $userId]);
@@ -176,6 +186,8 @@ final class TransactionController
         $categoryId = $v->int('category_id', 'Category', required: false);
         if ($date && $date > date('Y-m-d', strtotime('+1 year'))) {
             $v->error('transaction_date', 'Date is too far in the future.');
+        } elseif ($date && $date < '2000-01-01') {
+            $v->error('transaction_date', 'Date cannot be earlier than January 1, 2000.');
         }
         // Omitting "recurring" leaves an existing series untouched (null); true / false starts or stops one.
         $recurring = array_key_exists('recurring', $body) ? $v->bool('recurring') : null;
